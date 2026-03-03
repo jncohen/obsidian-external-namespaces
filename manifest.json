@@ -1,0 +1,10 @@
+{
+  "id": "external-namespaces",
+  "name": "External Namespaces",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Prefix-based namespaces for external filesystem folders with autocomplete, paste normalization, and local-only resolution.",
+  "author": "Joseph N. Cohen",
+  "authorUrl": "https://github.com/jncohen",
+  "isDesktopOnly": true
+}
