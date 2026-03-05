@@ -1,91 +1,81 @@
-import { App } from "obsidian";
-import { Editor, EditorPosition, TFile } from "obsidian";
+import {
+  App,
+  Editor,
+  EditorPosition,
+  EditorSuggest,
+  EditorSuggestContext,
+  EditorSuggestTriggerInfo,
+  TFile
+} from "obsidian";
 import { FileIndexer, IndexedPath } from "../indexing/FileIndexer";
 
-export class ExternalNamespaceSuggester {
+export class ExternalNamespaceSuggester extends EditorSuggest<IndexedPath> {
   private indexer: FileIndexer;
 
-  private app: App;
-
-  private getSandboxFolder(prefix: string): string | null {
-    const file = this.app.workspace.getActiveFile();
-    if (!file) return null;
-    
-    const cache = this.app.metadataCache.getFileCache(file);
-    const frontmatter = cache?.frontmatter;
-    if (!frontmatter) return null;
-    
-    const key = `${prefix}-folder`;
-    const folder = frontmatter[key];
-    
-    return typeof folder === "string" ? folder : null;
-}
-
-  
   constructor(app: App, indexer: FileIndexer) {
-    this.app = app;
+    super(app);
     this.indexer = indexer;
-   }
-
-
-  /**
-   * Called on every editor change.
-   * Returns true if we should handle suggestions.
-   */
-  shouldTrigger(editor: Editor): boolean {
-    const cursor = editor.getCursor();
-    const line = editor.getLine(cursor.line);
-    const beforeCursor = line.slice(0, cursor.ch);
-
-    return /\[\[[a-zA-Z0-9_-]+:[^\]]*$/.test(beforeCursor);
   }
 
-  /**
-   * Compute suggestions based on current editor state.
-   */
-  getSuggestions(editor: Editor): IndexedPath[] {
-    const cursor = editor.getCursor();
+  onTrigger(
+    cursor: EditorPosition,
+    editor: Editor,
+    _file: TFile | null
+  ): EditorSuggestTriggerInfo | null {
     const line = editor.getLine(cursor.line);
     const beforeCursor = line.slice(0, cursor.ch);
 
     const match = beforeCursor.match(/\[\[([a-zA-Z0-9_-]+):([^\]]*)$/);
-    if (!match) return [];
+    if (!match) return null;
 
-    const prefix = match[1];
-    const query = match[2] ?? "";
+    const bracketStart = beforeCursor.lastIndexOf("[[");
 
-    const results = this.indexer.search(prefix, query);
+    return {
+      start: { line: cursor.line, ch: bracketStart },
+      end: cursor,
+      query: `${match[1]}:${match[2]}`
+    };
+  }
 
-    const sandbox = this.getSandboxFolder(prefix);
+  getSuggestions(context: EditorSuggestContext): IndexedPath[] {
+    const colonIdx = context.query.indexOf(":");
+    if (colonIdx === -1) return [];
+
+    const prefix = context.query.slice(0, colonIdx);
+    const pathQuery = context.query.slice(colonIdx + 1);
+
+    const results = this.indexer.search(prefix, pathQuery);
+
+    const sandbox = this.getSandboxFolder(prefix, context.file);
     if (!sandbox) return results.slice(0, 50);
-    
+
     return results
-    .filter(item =>
-        item.relativePath.startsWith(`${sandbox}/`)
-    )
-    .slice(0, 50);
-    
-}
+      .filter(item => item.relativePath.startsWith(`${sandbox}/`))
+      .slice(0, 50);
+  }
 
-  /**
-   * Insert the selected suggestion.
-   */
-  applySuggestion(
-    editor: Editor,
-    suggestion: IndexedPath
-  ) {
-    const cursor = editor.getCursor();
-    const line = editor.getLine(cursor.line);
+  renderSuggestion(value: IndexedPath, el: HTMLElement): void {
+    el.setText(value.relativePath);
+  }
 
-    const startCh = line.lastIndexOf("[[");
-    if (startCh === -1) return;
+  selectSuggestion(value: IndexedPath): void {
+    const context = this.context;
+    if (!context) return;
 
-    const replacement = `[[${suggestion.prefix}:${suggestion.relativePath}]]`;
+    const replacement = `[[${value.prefix}:${value.relativePath}]]`;
+    context.editor.replaceRange(replacement, context.start, context.end);
+  }
 
-    editor.replaceRange(
-      replacement,
-      { line: cursor.line, ch: startCh },
-      cursor
-    );
+  private getSandboxFolder(prefix: string, file: TFile | null): string | null {
+    if (!file) return null;
+
+    const cache = this.app.metadataCache.getFileCache(file);
+    const frontmatter = cache?.frontmatter;
+    if (!frontmatter) return null;
+
+    const key = `${prefix}-folder`;
+    const folder = frontmatter[key];
+
+    return typeof folder === "string" ? folder : null;
   }
 }

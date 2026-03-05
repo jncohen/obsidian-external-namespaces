@@ -8,7 +8,10 @@ const IMAGE_EXTENSIONS = new Set([
   "jpeg",
   "gif",
   "svg",
-  "webp"
+  "webp",
+  "avif",
+  "bmp",
+  "ico"
 ]);
 
 export class ExternalEmbedHandler {
