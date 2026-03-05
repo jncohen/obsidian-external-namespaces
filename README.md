@@ -7,6 +7,8 @@ The plugin is designed for users who manage large external folder structures
 (e.g. Dropbox, OneDrive, project directories) and want stable, readable links
 inside Obsidian without copying files into the vault.
 
+This plugin was created using Claude Code.
+
 ## Installation
 
 ### From the Obsidian Community Plugin Browser (recommended)
