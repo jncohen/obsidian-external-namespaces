@@ -1,6 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
-import { normalizePath } from "obsidian";
+import { Notice, normalizePath } from "obsidian";
 import { RootRegistry } from "../roots/RootRegistry";
 import { RootDefinition } from "../roots/RootDefinition";
 
@@ -19,12 +19,12 @@ export class FileIndexer {
     this.maxDepth = maxDepth;
   }
 
-  rebuild() {
+  async rebuild(): Promise<void> {
     this.index = [];
 
     const roots = this.registry.getEnabled();
     for (const root of roots) {
-      this.scanRoot(root);
+      await this.scanRoot(root);
     }
   }
 
@@ -40,24 +40,32 @@ export class FileIndexer {
     );
   }
 
-  private scanRoot(root: RootDefinition) {
+  private async scanRoot(root: RootDefinition): Promise<void> {
     const rootPath = normalizePath(root.path);
-    if (!fs.existsSync(rootPath)) return;
 
-    this.walk(root, rootPath, "", 0);
+    try {
+      await fs.promises.access(rootPath);
+    } catch {
+      new Notice(
+        `External Namespaces: Cannot access root "${root.prefix}" at ${root.path}`
+      );
+      return;
+    }
+
+    await this.walk(root, rootPath, "", 0);
   }
 
-  private walk(
+  private async walk(
     root: RootDefinition,
     absolutePath: string,
     relativePath: string,
     depth: number
-  ) {
+  ): Promise<void> {
     if (depth > this.maxDepth) return;
 
     let entries: fs.Dirent[];
     try {
-      entries = fs.readdirSync(absolutePath, { withFileTypes: true });
+      entries = await fs.promises.readdir(absolutePath, { withFileTypes: true });
     } catch {
       return;
     }
@@ -69,7 +77,7 @@ export class FileIndexer {
         : entry.name;
 
       if (entry.isDirectory()) {
-        this.walk(root, abs, rel, depth + 1);
+        await this.walk(root, abs, rel, depth + 1);
       } else {
         this.index.push({
           prefix: root.prefix,

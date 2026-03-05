@@ -27,7 +27,7 @@ export default class ExternalNamespacesPlugin extends Plugin {
 
     this.initializeRootRegistry();
     this.initializeResolver();
-    this.initializeIndexer();
+    await this.initializeIndexer();
     this.initializeSuggester();
     this.initializeEmbedHandler();
 
@@ -35,8 +35,7 @@ export default class ExternalNamespacesPlugin extends Plugin {
       new ExternalNamespacesSettingTab(this.app, this)
     );
 
-    this.registerTestCommand();
-    this.registerAutocompleteHandler();
+    this.registerEditorSuggest(this.suggester);
 
     this.registerEvent(
       this.app.workspace.on("editor-paste", (evt, editor) => {
@@ -47,12 +46,10 @@ export default class ExternalNamespacesPlugin extends Plugin {
         if (handled) evt.preventDefault();
       })
     );
-
-    console.log("External Namespaces plugin loaded");
   }
 
   onunload() {
-    console.log("External Namespaces plugin unloaded");
+    // nothing to clean up
   }
 
   async loadSettings() {
@@ -67,10 +64,10 @@ export default class ExternalNamespacesPlugin extends Plugin {
     await this.saveData(this.settings);
     this.initializeRootRegistry();
     this.initializeResolver();
-    this.initializeIndexer();
+    await this.initializeIndexer();
     this.initializeSuggester();
     this.initializeEmbedHandler();
-}
+  }
 
 
   private initializeRootRegistry() {
@@ -81,62 +78,21 @@ export default class ExternalNamespacesPlugin extends Plugin {
     this.resolver = new FileSystemResolver(this.rootRegistry);
   }
 
-  private initializeIndexer() {
+  private async initializeIndexer(): Promise<void> {
     this.indexer = new FileIndexer(this.rootRegistry);
-    this.indexer.rebuild();
+    await this.indexer.rebuild();
   }
 
   private initializeSuggester() {
-  this.suggester = new ExternalNamespaceSuggester(this.app, this.indexer);
-}
-
-  private registerAutocompleteHandler() {
-    this.registerEvent(
-      this.app.workspace.on("editor-change", editor => {
-        if (!this.suggester.shouldTrigger(editor)) return;
-
-        const suggestions = this.suggester.getSuggestions(editor);
-        if (!suggestions.length) return;
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (this.app as any).suggests?.showSuggestions({
-          suggestions,
-          renderSuggestion: (value: any, el: HTMLElement) => {
-            el.setText(value.relativePath);
-          },
-          selectSuggestion: (value: any) => {
-            this.suggester.applySuggestion(editor, value);
-          }
-        });
-      })
-    );
+    this.suggester = new ExternalNamespaceSuggester(this.app, this.indexer);
   }
 
   private initializeEmbedHandler() {
-  this.embedHandler = new ExternalEmbedHandler(
-    this.app,
-    this.rootRegistry,
-    this.resolver
-  );
-  this.embedHandler.register(this);
-}
-
-
-  /**
-   * Temporary command for testing filesystem resolution.
-   */
-  private registerTestCommand() {
-    this.addCommand({
-      id: "external-namespaces-open-path",
-      name: "Open External Namespaced Path",
-      callback: async () => {
-        const input = prompt(
-          "Enter namespaced path (e.g. dropbox:foo/bar.txt)"
-        );
-        if (!input) return;
-
-        this.resolver.open(input);
-      }
-    });
+    this.embedHandler = new ExternalEmbedHandler(
+      this.app,
+      this.rootRegistry,
+      this.resolver
+    );
+    this.embedHandler.register(this);
   }
 }

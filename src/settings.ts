@@ -50,8 +50,8 @@ export class ExternalNamespacesSettingTab extends PluginSettingTab {
     saveSettings: () => Promise<void>;
   };
 
-  constructor(app: App, plugin: any) {
-    super(app, plugin);
+  constructor(app: App, plugin: { settings: ExternalNamespacesSettings; saveSettings: () => Promise<void> }) {
+    super(app, plugin as never);
     this.plugin = plugin;
   }
 
@@ -139,13 +139,63 @@ export class ExternalNamespacesSettingTab extends PluginSettingTab {
     containerEl.createEl("h3", { text: "Custom Roots" });
 
     this.plugin.settings.customRoots.forEach((root, index) => {
-      const setting = new Setting(containerEl)
+      new Setting(containerEl)
         .setName(`Custom Root: ${root.prefix || "(unnamed)"}`)
-        .setDesc("User-defined filesystem root");
+        .setDesc("User-defined filesystem root")
+        .addText(text =>
+          text
+            .setPlaceholder("prefix")
+            .setValue(root.prefix)
+            .onChange(async value => {
+              this.plugin.settings.customRoots[index].prefix = value;
+              await this.plugin.saveSettings();
+            })
+        )
+        .addText(text =>
+          text
+            .setPlaceholder("C:\\path\\to\\folder")
+            .setValue(root.path)
+            .onChange(async value => {
+              this.plugin.settings.customRoots[index].path = value;
+              await this.plugin.saveSettings();
+            })
+        )
+        .addToggle(toggle =>
+          toggle
+            .setValue(root.enabled)
+            .onChange(async value => {
+              this.plugin.settings.customRoots[index].enabled = value;
+              await this.plugin.saveSettings();
+            })
+        )
+        .addButton(button =>
+          button
+            .setButtonText("Delete")
+            .setWarning()
+            .onClick(async () => {
+              this.plugin.settings.customRoots.splice(index, 1);
+              await this.plugin.saveSettings();
+              this.display();
+            })
+        );
+    });
 
-      setting
-    }
-  )
+    new Setting(containerEl)
+      .setName("Add Custom Root")
+      .setDesc("Add a new user-defined filesystem root")
+      .addButton(button =>
+        button
+          .setButtonText("Add Root")
+          .setCta()
+          .onClick(async () => {
+            this.plugin.settings.customRoots.push({
+              prefix: "",
+              path: "",
+              enabled: false
+            });
+            await this.plugin.saveSettings();
+            this.display();
+          })
+      );
+  }
 }
-}
-

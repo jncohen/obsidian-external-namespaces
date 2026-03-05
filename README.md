@@ -7,6 +7,32 @@ The plugin is designed for users who manage large external folder structures
 (e.g. Dropbox, OneDrive, project directories) and want stable, readable links
 inside Obsidian without copying files into the vault.
 
+## Installation
+
+### From the Obsidian Community Plugin Browser (recommended)
+
+1. Open Obsidian and go to **Settings → Community Plugins**
+2. Disable Safe Mode if prompted
+3. Click **Browse** and search for "External Namespaces"
+4. Click **Install**, then **Enable**
+
+### Manual Installation
+
+1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/josephncohen/obsidian-external-namespaces/releases/latest)
+2. In your vault, create the folder `.obsidian/plugins/external-namespaces/`
+3. Copy the three downloaded files into that folder
+4. Restart Obsidian, then go to **Settings → Community Plugins** and enable **External Namespaces**
+
+### After Installing
+
+1. Go to **Settings → External Namespaces**
+2. Enter the local path to each folder you want to expose as a namespace (e.g. your Dropbox or OneDrive folder) and enable it
+3. Custom folders can be added under **Custom Roots** with any prefix name you choose
+
+> **Note:** This plugin is desktop-only. It requires Obsidian 1.5.0 or later.
+
+---
+
 ## Motivation
 
 Many Obsidian users work across multiple devices while syncing large external
@@ -119,20 +145,6 @@ Non-matching paths are left untouched.
 - No telemetry
 - No cloud APIs
 - No file contents are read or modified
-
----
-
-## Non-Goals
-
-This plugin intentionally does **not**:
-
-- Integrate with reference managers (e.g. Zotero)
-- Manage citations or bibliographies
-- Render PDFs inline
-- Sync or upload files
-- Modify external files
-
-External Namespaces is infrastructure, not a document management system.
 
 ---
 
