@@ -26,12 +26,47 @@ export class ExternalEmbedHandler {
   }
 
   /**
-   * Register the markdown post processor that gates embeds.
+   * Register the markdown post processor that gates embeds,
+   * and a capture-phase click handler that intercepts namespace links
+   * before Obsidian tries to open them as vault files.
    */
   register(plugin: Plugin) {
     plugin.registerMarkdownPostProcessor((el, ctx) => {
       this.processEmbeds(el, ctx);
     });
+
+    plugin.registerDomEvent(document, "click", (evt: MouseEvent) => {
+      this.interceptLinkClick(evt);
+    }, true); // capture phase: fires before Obsidian's own click handler
+  }
+
+  /**
+   * If the click is on an internal link whose href matches a registered
+   * namespace, open the file externally and suppress Obsidian's default
+   * behaviour (which would fail with an "invalid filename" error on Windows).
+   */
+  private interceptLinkClick(evt: MouseEvent) {
+    const link = (evt.target as HTMLElement).closest("a.internal-link");
+    if (!link) return;
+
+    const href = (
+      link.getAttribute("data-href") ?? link.getAttribute("href") ?? ""
+    ).trim();
+
+    const colonIdx = href.indexOf(":");
+    if (colonIdx === -1) return;
+
+    const prefix = href.slice(0, colonIdx);
+    if (!this.roots.has(prefix)) return;
+
+    // It's one of our namespace links — always prevent Obsidian handling it.
+    evt.preventDefault();
+    evt.stopPropagation();
+
+    const relativePath = href.slice(colonIdx + 1);
+    if (relativePath) {
+      this.resolver.open(href);
+    }
   }
 
   /**
