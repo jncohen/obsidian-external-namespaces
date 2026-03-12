@@ -41,18 +41,21 @@ export class ExternalEmbedHandler {
   }
 
   /**
-   * If the click is on an internal link whose href matches a registered
-   * namespace, open the file externally and suppress Obsidian's default
-   * behaviour (which would fail with an "invalid filename" error on Windows).
+   * If the click is on a markdown external link whose href matches a registered
+   * namespace, open the file externally and suppress Obsidian's default behaviour.
+   *
+   * Namespace links use [label](prefix:path) syntax and render as
+   * <a class="external-link"> — not as wikilinks — to avoid Obsidian's
+   * vault-file resolution (which rejects `:` in filenames on Windows).
    */
   private interceptLinkClick(evt: MouseEvent) {
-    // Namespace links are now rendered as standard markdown links (<a class="external-link">)
-    // rather than wikilinks (<a class="internal-link">), since the [[prefix:path]] syntax
-    // caused Obsidian to treat them as vault file references and reject the `:` on Windows.
     const link = (evt.target as HTMLElement).closest("a.external-link");
     if (!link) return;
 
-    const href = (link.getAttribute("href") ?? "").trim();
+    // Decode percent-encoded characters (e.g. spaces encoded as %20 by the
+    // markdown renderer) so the filesystem resolver gets the real path.
+    const raw = (link.getAttribute("href") ?? "").trim();
+    const href = (() => { try { return decodeURIComponent(raw); } catch { return raw; } })();
 
     const colonIdx = href.indexOf(":");
     if (colonIdx === -1) return;

@@ -53,12 +53,15 @@ paths, allowing the same note to resolve correctly on every device.
 
 ## Core Concept
 
-External files are referenced using a namespace prefix:
+External files are referenced using a standard Markdown link with a namespace
+prefix as the URL scheme:
 
 ```
-[[dropbox:ProjectA/data/file.csv]]
+[filename.csv](dropbox:ProjectA/data/file.csv)
 ```
 
+The display label can be anything you like. The `dropbox:` prefix identifies
+the namespace, and the path after it is resolved relative to that namespace root.
 
 Namespaces map to folders on the local filesystem. All resolution is local and
 performed on disk; no cloud APIs are used.
@@ -82,9 +85,12 @@ Each namespace is configured in the plugin settings.
 ### Standard links
 
 ```
-[[dropbox:ProjectA/data/file.csv]]
+[file.csv](dropbox:ProjectA/data/file.csv)
+[Q1 report](onedrive:Reports/Q1.xlsx)
+[notes](custom-root:subfolder/document.pdf)
 ```
 
+Clicking a link opens the file in its default application.
 
 Image files are rendered inline when supported by Obsidian.
 
@@ -105,7 +111,6 @@ A note may restrict a namespace to a subfolder using frontmatter:
 dropbox-folder: "ProjectA"
 ```
 
-
 When set:
 
 - All `dropbox:` links in the note are restricted to that folder
@@ -118,23 +123,34 @@ Sandboxing is enforced silently.
 
 ## Autocomplete
 
-Typing:
+To insert a namespaced link with autocomplete:
+
+1. Type `[[` followed by the namespace prefix and a colon — e.g. `[[dropbox:`
+2. Continue typing to filter the file list
+3. Select a file from the popup
+
+The plugin inserts a properly-formed Markdown link, for example:
 
 ```
-[[dropbox:
+[file.csv](dropbox:ProjectA/data/file.csv)
 ```
 
-
-triggers autocomplete suggestions based on indexed files. Suggestions respect
-namespace configuration and note-level sandboxing.
+Suggestions respect namespace configuration and note-level sandboxing.
 
 ---
 
 ## Paste Normalization (Windows)
 
-When enabled, Windows “Copy as path” pastes (including quoted paths) are
-automatically normalized into namespaced links when the file is inside a
-configured namespace root.
+When a Windows "Copy as path" path is pasted into a note (including
+quoted paths from the **Copy as path** context menu), and the path falls
+under a configured namespace root, it is automatically converted to a
+namespaced link.
+
+For example, pasting `"C:\Users\you\Dropbox\Reports\Q1.xlsx"` produces:
+
+```
+[Q1.xlsx](dropbox:Reports/Q1.xlsx)
+```
 
 Non-matching paths are left untouched.
 
