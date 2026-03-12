@@ -17,6 +17,10 @@ export class ExternalNamespaceSuggester extends EditorSuggest<IndexedPath> {
     this.indexer = indexer;
   }
 
+  setIndexer(indexer: FileIndexer): void {
+    this.indexer = indexer;
+  }
+
   onTrigger(
     cursor: EditorPosition,
     editor: Editor,

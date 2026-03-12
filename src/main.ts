@@ -65,7 +65,7 @@ export default class ExternalNamespacesPlugin extends Plugin {
     this.initializeRootRegistry();
     this.initializeResolver();
     await this.initializeIndexer();
-    this.initializeSuggester();
+    this.suggester.setIndexer(this.indexer); // update the registered suggester in-place
     this.initializeEmbedHandler();
   }
 
