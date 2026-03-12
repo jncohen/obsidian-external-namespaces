@@ -46,12 +46,13 @@ export class ExternalEmbedHandler {
    * behaviour (which would fail with an "invalid filename" error on Windows).
    */
   private interceptLinkClick(evt: MouseEvent) {
-    const link = (evt.target as HTMLElement).closest("a.internal-link");
+    // Namespace links are now rendered as standard markdown links (<a class="external-link">)
+    // rather than wikilinks (<a class="internal-link">), since the [[prefix:path]] syntax
+    // caused Obsidian to treat them as vault file references and reject the `:` on Windows.
+    const link = (evt.target as HTMLElement).closest("a.external-link");
     if (!link) return;
 
-    const href = (
-      link.getAttribute("data-href") ?? link.getAttribute("href") ?? ""
-    ).trim();
+    const href = (link.getAttribute("href") ?? "").trim();
 
     const colonIdx = href.indexOf(":");
     if (colonIdx === -1) return;

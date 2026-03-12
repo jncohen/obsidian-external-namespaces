@@ -23,7 +23,8 @@ export function normalizePaste(
   const { prefix, rootPath } = match;
   const relative = normalized.slice(rootPath.length).replace(/^\/+/, "");
 
-  const replacement = `[[${prefix}:${relative}]]`;
+  const filename = relative.split("/").at(-1) ?? relative;
+  const replacement = `[${filename}](${prefix}:${relative})`;
   editor.replaceSelection(replacement);
 
   return true;

@@ -90,11 +90,17 @@ export class ExternalNamespaceSuggester extends EditorSuggest<IndexedPath> {
     const context = this.context;
     if (!context) return;
 
-    const replacement = `[[${value.prefix}:${value.relativePath}]]`;
+    // Use the last path segment as the display label.
+    const segments = value.relativePath.split("/");
+    const filename = segments[segments.length - 1] ?? value.relativePath;
+
+    // Output a standard markdown link: [filename](prefix:path)
+    // This avoids Obsidian treating the link as a vault wikilink, which
+    // fails on Windows because `:` is illegal in filenames.
+    const replacement = `[${filename}](${value.prefix}:${value.relativePath})`;
 
     // Obsidian auto-pairs [[ with ]], placing the cursor inside [[|]].
-    // If the characters immediately after the cursor are ]], consume them so
-    // we don't leave dangling brackets behind (which would produce [[path]]]]].
+    // Consume the auto-paired ]] so we don't leave dangling brackets.
     const line = context.editor.getLine(context.end.line);
     const afterEnd = line.slice(context.end.ch);
     const end = afterEnd.startsWith("]]")
