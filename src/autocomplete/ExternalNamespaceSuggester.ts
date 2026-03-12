@@ -10,6 +10,11 @@ import {
 import { FileIndexer, IndexedPath } from "../indexing/FileIndexer";
 import { RootRegistry } from "../roots/RootRegistry";
 
+// Sentinel value returned when a registered namespace has no matching files.
+// Keeps the plugin's popup open so Obsidian's native "Create note" completer
+// cannot take over with an invalid filename.
+const NO_RESULTS: IndexedPath = { prefix: "", relativePath: "" };
+
 export class ExternalNamespaceSuggester extends EditorSuggest<IndexedPath> {
   private indexer: FileIndexer;
   private registry: RootRegistry;
@@ -60,23 +65,43 @@ export class ExternalNamespaceSuggester extends EditorSuggest<IndexedPath> {
     const results = this.indexer.search(prefix, pathQuery);
 
     const sandbox = this.getSandboxFolder(prefix, context.file);
-    if (!sandbox) return results.slice(0, 50);
+    if (!sandbox) {
+      return results.length > 0 ? results.slice(0, 50) : [NO_RESULTS];
+    }
 
-    return results
+    const filtered = results
       .filter(item => item.relativePath.startsWith(`${sandbox}/`))
       .slice(0, 50);
+    return filtered.length > 0 ? filtered : [NO_RESULTS];
   }
 
   renderSuggestion(value: IndexedPath, el: HTMLElement): void {
+    if (value === NO_RESULTS) {
+      el.setText("(no matching files)");
+      el.addClass("external-namespace-no-results");
+      return;
+    }
     el.setText(value.relativePath);
   }
 
   selectSuggestion(value: IndexedPath): void {
+    if (value === NO_RESULTS) return;
+
     const context = this.context;
     if (!context) return;
 
     const replacement = `[[${value.prefix}:${value.relativePath}]]`;
-    context.editor.replaceRange(replacement, context.start, context.end);
+
+    // Obsidian auto-pairs [[ with ]], placing the cursor inside [[|]].
+    // If the characters immediately after the cursor are ]], consume them so
+    // we don't leave dangling brackets behind (which would produce [[path]]]]].
+    const line = context.editor.getLine(context.end.line);
+    const afterEnd = line.slice(context.end.ch);
+    const end = afterEnd.startsWith("]]")
+      ? { line: context.end.line, ch: context.end.ch + 2 }
+      : context.end;
+
+    context.editor.replaceRange(replacement, context.start, end);
   }
 
   private getSandboxFolder(prefix: string, file: TFile | null): string | null {
