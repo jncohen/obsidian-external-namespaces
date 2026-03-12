@@ -8,17 +8,24 @@ import {
   TFile
 } from "obsidian";
 import { FileIndexer, IndexedPath } from "../indexing/FileIndexer";
+import { RootRegistry } from "../roots/RootRegistry";
 
 export class ExternalNamespaceSuggester extends EditorSuggest<IndexedPath> {
   private indexer: FileIndexer;
+  private registry: RootRegistry;
 
-  constructor(app: App, indexer: FileIndexer) {
+  constructor(app: App, indexer: FileIndexer, registry: RootRegistry) {
     super(app);
     this.indexer = indexer;
+    this.registry = registry;
   }
 
   setIndexer(indexer: FileIndexer): void {
     this.indexer = indexer;
+  }
+
+  setRegistry(registry: RootRegistry): void {
+    this.registry = registry;
   }
 
   onTrigger(
@@ -31,6 +38,8 @@ export class ExternalNamespaceSuggester extends EditorSuggest<IndexedPath> {
 
     const match = beforeCursor.match(/\[\[([a-zA-Z0-9_-]+):([^\]]*)$/);
     if (!match) return null;
+
+    if (!this.registry.has(match[1])) return null;
 
     const bracketStart = beforeCursor.lastIndexOf("[[");
 
