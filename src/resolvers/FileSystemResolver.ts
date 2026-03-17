@@ -1,6 +1,5 @@
 import { RootRegistry } from "../roots/RootRegistry";
 import { RootDefinition } from "../roots/RootDefinition";
-import { normalizePath } from "obsidian";
 import * as path from "path";
 import * as fs from "fs";
 
@@ -23,7 +22,7 @@ export class FileSystemResolver {
     const { root, relativePath } = parsed;
 
     const fullPath = path.join(root.path, relativePath);
-    return normalizePath(fullPath);
+    return path.normalize(fullPath);
   }
 
   /**

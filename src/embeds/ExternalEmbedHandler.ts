@@ -35,9 +35,9 @@ export class ExternalEmbedHandler {
       this.processEmbeds(el, ctx);
     });
 
-    plugin.registerDomEvent(document, "click", (evt: MouseEvent) => {
+    plugin.registerDomEvent(window as unknown as HTMLElement, "click", (evt: MouseEvent) => {
       this.interceptLinkClick(evt);
-    }, true); // capture phase: fires before Obsidian's own click handler
+    }, true); // capture phase on window: fires before Obsidian's own window-level handler
   }
 
   /**
