@@ -1,1 +1,248 @@
-"use strict";var F=Object.create;var p=Object.defineProperty;var L=Object.getOwnPropertyDescriptor;var $=Object.getOwnPropertyNames;var M=Object.getPrototypeOf,O=Object.prototype.hasOwnProperty;var H=(n,e)=>{for(var t in e)p(n,t,{get:e[t],enumerable:!0})},S=(n,e,t,i)=>{if(e&&typeof e=="object"||typeof e=="function")for(let s of $(e))!O.call(n,s)&&s!==t&&p(n,s,{get:()=>e[s],enumerable:!(i=L(e,s))||i.enumerable});return n};var g=(n,e,t)=>(t=n!=null?F(M(n)):{},S(e||!n||!n.__esModule?p(t,"default",{value:n,enumerable:!0}):t,n)),U=n=>S(p({},"__esModule",{value:!0}),n);var B={};H(B,{default:()=>R});module.exports=U(B);var z=require("obsidian");var h=require("obsidian"),w={onedrivePersonalPath:"",onedrivePersonalEnabled:!1,onedriveCunyPath:"",onedriveCunyEnabled:!1,dropboxPath:"",dropboxEnabled:!1,customRoots:[]},c=class extends h.PluginSettingTab{constructor(e,t){super(e,t),this.plugin=t}display(){let{containerEl:e}=this;e.empty(),e.createEl("h2",{text:"External Namespaces \u2014 Filesystem Roots"}),e.createEl("h3",{text:"Built-in Providers"}),new h.Setting(e).setName("OneDrive (Personal)").setDesc("Local path to your personal OneDrive folder").addText(t=>t.setPlaceholder("C:\\Users\\USERNAME\\OneDrive").setValue(this.plugin.settings.onedrivePersonalPath).onChange(async i=>{this.plugin.settings.onedrivePersonalPath=i,await this.plugin.saveSettings()})).addToggle(t=>t.setValue(this.plugin.settings.onedrivePersonalEnabled).onChange(async i=>{this.plugin.settings.onedrivePersonalEnabled=i,await this.plugin.saveSettings()})),new h.Setting(e).setName("OneDrive (CUNY / Corporate)").setDesc("Local path to your corporate or institutional OneDrive folder").addText(t=>t.setPlaceholder("C:\\Users\\USERNAME\\OneDrive - CUNY").setValue(this.plugin.settings.onedriveCunyPath).onChange(async i=>{this.plugin.settings.onedriveCunyPath=i,await this.plugin.saveSettings()})).addToggle(t=>t.setValue(this.plugin.settings.onedriveCunyEnabled).onChange(async i=>{this.plugin.settings.onedriveCunyEnabled=i,await this.plugin.saveSettings()})),new h.Setting(e).setName("Dropbox").setDesc("Local path to your Dropbox folder").addText(t=>t.setPlaceholder("C:\\Users\\USERNAME\\Dropbox").setValue(this.plugin.settings.dropboxPath).onChange(async i=>{this.plugin.settings.dropboxPath=i,await this.plugin.saveSettings()})).addToggle(t=>t.setValue(this.plugin.settings.dropboxEnabled).onChange(async i=>{this.plugin.settings.dropboxEnabled=i,await this.plugin.saveSettings()})),e.createEl("h3",{text:"Custom Roots"}),this.plugin.settings.customRoots.forEach((t,i)=>{new h.Setting(e).setName(`Custom Root: ${t.prefix||"(unnamed)"}`).setDesc("User-defined filesystem root").addText(s=>s.setPlaceholder("prefix").setValue(t.prefix).onChange(async r=>{this.plugin.settings.customRoots[i].prefix=r,await this.plugin.saveSettings()})).addText(s=>s.setPlaceholder("C:\\path\\to\\folder").setValue(t.path).onChange(async r=>{this.plugin.settings.customRoots[i].path=r,await this.plugin.saveSettings()})).addToggle(s=>s.setValue(t.enabled).onChange(async r=>{this.plugin.settings.customRoots[i].enabled=r,await this.plugin.saveSettings()})).addButton(s=>s.setButtonText("Delete").setWarning().onClick(async()=>{this.plugin.settings.customRoots.splice(i,1),await this.plugin.saveSettings(),this.display()}))}),new h.Setting(e).setName("Add Custom Root").setDesc("Add a new user-defined filesystem root").addButton(t=>t.setButtonText("Add Root").setCta().onClick(async()=>{this.plugin.settings.customRoots.push({prefix:"",path:"",enabled:!1}),await this.plugin.saveSettings(),this.display()}))}};var u=class{constructor(e){this.roots=[];this.roots=this.buildRoots(e)}buildRoots(e){let t=[];return e.onedrivePersonalEnabled&&e.onedrivePersonalPath&&t.push({prefix:"onedrive",path:e.onedrivePersonalPath,enabled:!0,source:"builtin"}),e.onedriveCunyEnabled&&e.onedriveCunyPath&&t.push({prefix:"onedrivecuny",path:e.onedriveCunyPath,enabled:!0,source:"builtin"}),e.dropboxEnabled&&e.dropboxPath&&t.push({prefix:"dropbox",path:e.dropboxPath,enabled:!0,source:"builtin"}),e.customRoots.forEach(i=>{!i.enabled||!i.prefix||!i.path||t.push({prefix:i.prefix,path:i.path,enabled:!0,source:"custom"})}),t}getAll(){return[...this.roots]}getEnabled(){return this.roots.filter(e=>e.enabled)}has(e){return this.roots.some(t=>t.prefix===e&&t.enabled)}getByPrefix(e){return this.roots.find(t=>t.prefix===e&&t.enabled)}};var C=require("obsidian"),D=g(require("path"),1),T=g(require("fs"),1),f=class{constructor(e){this.registry=e}resolve(e){let t=this.parse(e);if(!t)return null;let{root:i,relativePath:s}=t,r=D.join(i.path,s);return D.normalize(r)}open(e){let t=this.resolve(e);if(t){if(!T.existsSync(t)){console.warn("External Namespaces: path does not exist",t);return}window.require("electron").shell.openPath(t)}}parse(e){let t=e.indexOf(":");if(t===-1)return null;let i=e.slice(0,t),s=e.slice(t+1),r=this.registry.getByPrefix(i);return r?{root:r,relativePath:s}:null}};var b=require("obsidian");function I(n,e,t){let i=e.replace(/^"+|"+$/g,"");if(!V(i))return!1;let s=(0,b.normalizePath)(i),r=_(s,t);if(!r)return!1;let{prefix:o,rootPath:a}=r,l=s.slice(a.length).replace(/^\/+/,""),P=`[${l.split("/").at(-1)??l}](${o}:${l})`;return n.replaceSelection(P),!0}function V(n){return/^[A-Za-z]:[\\/]/.test(n)}function _(n,e){let t=e.getEnabled(),i=null;for(let s of t){let r=(0,b.normalizePath)(s.path);n.startsWith(r)&&(!i||r.length>i.rootPath.length)&&(i={prefix:s.prefix,rootPath:r})}return i}var E=g(require("fs"),1),N=g(require("path"),1),d=require("obsidian"),m=class{constructor(e,t=6){this.index=[];this.registry=e,this.maxDepth=t}async rebuild(){this.index=[];let e=this.registry.getEnabled();for(let t of e)await this.scanRoot(t)}getAll(){return this.index}search(e,t){return this.index.filter(i=>i.prefix===e&&i.relativePath.toLowerCase().includes(t.toLowerCase()))}async scanRoot(e){let t=(0,d.normalizePath)(e.path);try{await E.promises.access(t)}catch{new d.Notice(`External Namespaces: Cannot access root "${e.prefix}" at ${e.path}`);return}await this.walk(e,t,"",0)}async walk(e,t,i,s){if(s>this.maxDepth)return;let r;try{r=await E.promises.readdir(t,{withFileTypes:!0})}catch{return}for(let o of r){let a=N.join(t,o.name),l=i?`${i}/${o.name}`:o.name;o.isDirectory()?await this.walk(e,a,l,s+1):this.index.push({prefix:e.prefix,relativePath:(0,d.normalizePath)(l)})}}};var A=require("obsidian"),x={prefix:"",relativePath:""},v=class extends A.EditorSuggest{constructor(e,t,i){super(e),this.indexer=t,this.registry=i}setIndexer(e){this.indexer=e}setRegistry(e){this.registry=e}onTrigger(e,t,i){let r=t.getLine(e.line).slice(0,e.ch),o=r.match(/\[\[([a-zA-Z0-9_-]+):([^\]]*)$/);if(!o||!this.registry.has(o[1]))return null;let a=r.lastIndexOf("[[");return{start:{line:e.line,ch:a},end:e,query:`${o[1]}:${o[2]}`}}getSuggestions(e){let t=e.query.indexOf(":");if(t===-1)return[];let i=e.query.slice(0,t),s=e.query.slice(t+1),r=this.indexer.search(i,s),o=this.getSandboxFolder(i,e.file);if(!o)return r.length>0?r.slice(0,50):[x];let a=r.filter(l=>l.relativePath.startsWith(`${o}/`)).slice(0,50);return a.length>0?a:[x]}renderSuggestion(e,t){if(e===x){t.setText("(no matching files)"),t.addClass("external-namespace-no-results");return}t.setText(e.relativePath)}selectSuggestion(e){if(e===x)return;let t=this.context;if(!t)return;let i=e.relativePath.split("/"),r=`[${i[i.length-1]??e.relativePath}](${e.prefix}:${e.relativePath})`,l=t.editor.getLine(t.end.line).slice(t.end.ch).startsWith("]]")?{line:t.end.line,ch:t.end.ch+2}:t.end;t.editor.replaceRange(r,t.start,l)}getSandboxFolder(e,t){if(!t)return null;let s=this.app.metadataCache.getFileCache(t)?.frontmatter;if(!s)return null;let r=`${e}-folder`,o=s[r];return typeof o=="string"?o:null}};var j=new Set(["png","jpg","jpeg","gif","svg","webp","avif","bmp","ico"]),y=class{constructor(e,t,i){this.app=e,this.roots=t,this.resolver=i}register(e){e.registerMarkdownPostProcessor((t,i)=>{this.processEmbeds(t,i)}),e.registerDomEvent(window,"click",t=>{this.interceptLinkClick(t)},!0)}interceptLinkClick(e){let t=e.target.closest("a.external-link");if(!t)return;let i=(t.getAttribute("href")??"").trim(),s=(()=>{try{return decodeURIComponent(i)}catch{return i}})(),r=s.indexOf(":");if(r===-1)return;let o=s.slice(0,r);if(!this.roots.has(o))return;e.preventDefault(),e.stopPropagation(),s.slice(r+1)&&this.resolver.open(s)}processEmbeds(e,t){e.querySelectorAll("img, iframe, object").forEach(s=>{let r=this.getSource(s);if(!r)return;let o=this.parseNamespacedPath(r);if(!o)return;let{prefix:a,relativePath:l}=o;if(!this.roots.has(a)){this.remove(s);return}if(!this.resolver.resolve(`${a}:${l}`)){this.remove(s);return}let P=this.getExtension(l);j.has(P)||this.remove(s)})}getSource(e){return e instanceof HTMLImageElement||e instanceof HTMLIFrameElement?e.getAttribute("src"):e instanceof HTMLObjectElement?e.getAttribute("data"):null}parseNamespacedPath(e){let t=e.match(/^([a-zA-Z0-9_-]+):(.+)$/);return t?{prefix:t[1],relativePath:t[2]}:null}getExtension(e){let t=e.lastIndexOf(".");return t===-1?"":e.slice(t+1).toLowerCase()}remove(e){e.remove()}};var R=class extends z.Plugin{async onload(){await this.loadSettings(),this.initializeRootRegistry(),this.initializeResolver(),await this.initializeIndexer(),this.initializeSuggester(),this.initializeEmbedHandler(),this.addSettingTab(new c(this.app,this)),this.registerEditorSuggest(this.suggester),this.registerEvent(this.app.workspace.on("editor-paste",(e,t)=>{let i=(e.clipboardData?.getData("text")??"").trim();if(!i)return;I(t,i,this.rootRegistry)&&e.preventDefault()}))}onunload(){}async loadSettings(){this.settings=Object.assign({},w,await this.loadData())}async saveSettings(){await this.saveData(this.settings),this.initializeRootRegistry(),this.initializeResolver(),await this.initializeIndexer(),this.suggester.setIndexer(this.indexer),this.suggester.setRegistry(this.rootRegistry),this.initializeEmbedHandler()}initializeRootRegistry(){this.rootRegistry=new u(this.settings)}initializeResolver(){this.resolver=new f(this.rootRegistry)}async initializeIndexer(){this.indexer=new m(this.rootRegistry),await this.indexer.rebuild()}initializeSuggester(){this.suggester=new v(this.app,this.indexer,this.rootRegistry)}initializeEmbedHandler(){this.embedHandler=new y(this.app,this.rootRegistry,this.resolver),this.embedHandler.register(this)}};
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = void 0;
+
+var obsidian = require("obsidian");
+var nodePath  = require("path");
+var nodeFs    = require("fs");
+
+// ── Default settings ──────────────────────────────────────────────────────────
+
+var DEFAULT_SETTINGS = { roots: [] };
+
+// ── Settings tab ──────────────────────────────────────────────────────────────
+
+class ENSSettingTab extends obsidian.PluginSettingTab {
+  constructor(app, plugin) {
+    super(app, plugin);
+    this.plugin = plugin;
+  }
+
+  display() {
+    var plugin = this.plugin;
+    var el = this.containerEl;
+    el.empty();
+
+    el.createEl("h2", { text: "External Namespaces" });
+
+    el.createEl("p", {
+      cls: "ens-desc",
+      text:
+        "Map short prefixes to folders on your computer. " +
+        "Paste any Windows file path from a registered folder into a note " +
+        "and it becomes a clickable link automatically."
+    });
+
+    // Grid table
+    var table = el.createDiv({ cls: "ens-table" });
+
+    // Header row
+    table.createEl("span", { cls: "ens-th", text: "Prefix" });
+    table.createEl("span", { cls: "ens-th", text: "Folder path" });
+    table.createEl("span", { cls: "ens-th" }); // delete column header (blank)
+
+    var roots = plugin.settings.roots;
+
+    if (roots.length === 0) {
+      table.createEl("span", {
+        cls: "ens-empty",
+        text: "No roots configured. Add one below."
+      });
+    } else {
+      roots.forEach(function (root, i) {
+        // Prefix input
+        var prefixInput = table.createEl("input", { cls: "ens-input" });
+        prefixInput.type        = "text";
+        prefixInput.placeholder = "prefix";
+        prefixInput.value       = root.prefix;
+        prefixInput.addEventListener("change", async function () {
+          plugin.settings.roots[i].prefix = prefixInput.value.trim().toLowerCase();
+          await plugin.saveSettings();
+        });
+
+        // Path input
+        var pathInput = table.createEl("input", { cls: "ens-input" });
+        pathInput.type        = "text";
+        pathInput.placeholder = "C:\\path\\to\\folder";
+        pathInput.value       = root.path;
+        pathInput.addEventListener("change", async function () {
+          plugin.settings.roots[i].path = pathInput.value.trim();
+          await plugin.saveSettings();
+        });
+
+        // Delete button
+        var del = table.createEl("button", { cls: "ens-delete-btn" });
+        del.textContent = "✕";
+        del.setAttribute("aria-label", "Remove root");
+        del.addEventListener("click", async function () {
+          plugin.settings.roots.splice(i, 1);
+          await plugin.saveSettings();
+          plugin.settingsTab.display();
+        });
+      });
+    }
+
+    // "Add root" button
+    var addRow = el.createDiv({ cls: "ens-add-row" });
+    var addBtn = addRow.createEl("button", { cls: "mod-cta" });
+    addBtn.textContent = "+ Add root";
+    addBtn.addEventListener("click", async function () {
+      plugin.settings.roots.push({ prefix: "", path: "" });
+      await plugin.saveSettings();
+      plugin.settingsTab.display();
+    });
+
+    // Usage hint (shown once at least one root exists)
+    if (roots.length > 0) {
+      var exPrefix = roots[0].prefix || "prefix";
+      var hint = el.createEl("p", { cls: "ens-hint" });
+      hint.innerHTML =
+        "Paste any Windows path from a registered folder into a note — " +
+        "it becomes a link like <code>[filename](obsidian://ens?p=" +
+        exPrefix + ":relative/path)</code>. " +
+        "In reading or preview mode only the filename is visible; clicking it opens the file.";
+    }
+  }
+}
+
+// ── Resolver ──────────────────────────────────────────────────────────────────
+
+class Resolver {
+  constructor(settings) {
+    this.settings = settings;
+  }
+
+  // Find the best-matching root for a prefix string.
+  findRoot(prefix) {
+    return this.settings.roots.find(function (r) {
+      return r.prefix === prefix && r.prefix && r.path;
+    }) || null;
+  }
+
+  // Convert "prefix:relative/path" → absolute filesystem path.
+  resolve(namespacedPath) {
+    var idx = namespacedPath.indexOf(":");
+    if (idx === -1) return null;
+    var prefix = namespacedPath.slice(0, idx);
+    var rel    = namespacedPath.slice(idx + 1);
+    var root   = this.findRoot(prefix);
+    if (!root) return null;
+    return nodePath.normalize(nodePath.join(root.path, rel));
+  }
+
+  // Open the file/folder with its default OS application.
+  open(namespacedPath) {
+    var resolved = this.resolve(namespacedPath);
+    if (!resolved) return;
+    if (!nodeFs.existsSync(resolved)) return;
+    window.require("electron").shell.openPath(resolved);
+  }
+}
+
+// ── Paste handler ─────────────────────────────────────────────────────────────
+
+// Converts a pasted Windows absolute path into an obsidian://ens link if it
+// falls under a registered root.  Returns true if the paste was handled.
+function handlePaste(editor, rawText, settings) {
+  var text = rawText.replace(/^"+|"+$/g, "").trim();
+  if (!/^[A-Za-z]:[\\/]/.test(text)) return false;
+
+  // Normalise to forward slashes for consistent prefix matching.
+  var norm = text.replace(/\\/g, "/");
+
+  // Find the longest matching root (so nested roots beat shallower ones).
+  var bestRoot    = null;
+  var bestRootLen = 0;
+  for (var i = 0; i < settings.roots.length; i++) {
+    var r = settings.roots[i];
+    if (!r.prefix || !r.path) continue;
+    var rootNorm = r.path.replace(/\\/g, "/").replace(/\/+$/, "");
+    if (norm === rootNorm || norm.startsWith(rootNorm + "/")) {
+      if (rootNorm.length > bestRootLen) {
+        bestRootLen = rootNorm.length;
+        bestRoot    = { def: r, normPath: rootNorm };
+      }
+    }
+  }
+
+  if (!bestRoot) return false;
+
+  var rel      = norm.slice(bestRoot.normPath.length).replace(/^\/+/, "");
+  var parts    = rel.split("/");
+  var filename = parts[parts.length - 1] || rel;
+  var link     = "[" + filename + "](obsidian://ens?p=" + bestRoot.def.prefix + ":" + rel + ")";
+
+  editor.replaceSelection(link);
+  return true;
+}
+
+// ── Plugin ────────────────────────────────────────────────────────────────────
+
+class ENSPlugin extends obsidian.Plugin {
+  async onload() {
+    await this.loadSettings();
+    this.resolver = new Resolver(this.settings);
+
+    // Route obsidian://ens?p=prefix:path to shell.openPath().
+    // This runs entirely inside Obsidian — no Windows protocol registration
+    // required, no "Open link" dialog, no "Get an app" error.
+    this.registerObsidianProtocolHandler("ens", (params) => {
+      var p = params["p"];
+      if (p) this.resolver.open(p);
+    });
+
+    // Convert pasted Windows paths into namespace links.
+    this.registerEvent(
+      this.app.workspace.on("editor-paste", (evt, editor) => {
+        var text = ((evt.clipboardData && evt.clipboardData.getData("text")) || "").trim();
+        if (!text) return;
+        if (handlePaste(editor, text, this.settings)) evt.preventDefault();
+      })
+    );
+
+    this.settingsTab = new ENSSettingTab(this.app, this);
+    this.addSettingTab(this.settingsTab);
+  }
+
+  onunload() {}
+
+  async loadSettings() {
+    var data = await this.loadData();
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, data || {});
+    if (!Array.isArray(this.settings.roots)) this.settings.roots = [];
+
+    // ── Migrate from old plugin format ──────────────────────────────────────
+    // The previous version stored built-in providers (Dropbox, OneDrive) as
+    // separate top-level keys and custom roots as a "customRoots" array.
+    // Import them into the new unified "roots" array on first load.
+    if (data) {
+      var existing = this.settings.roots;
+      var has = function (prefix) {
+        return existing.some(function (r) { return r.prefix === prefix; });
+      };
+
+      if (data.dropboxEnabled && data.dropboxPath && !has("dropbox"))
+        existing.push({ prefix: "dropbox", path: data.dropboxPath });
+
+      if (data.onedrivePersonalEnabled && data.onedrivePersonalPath && !has("onedrive"))
+        existing.push({ prefix: "onedrive", path: data.onedrivePersonalPath });
+
+      if (data.onedriveCunyEnabled && data.onedriveCunyPath && !has("onedrivecuny"))
+        existing.push({ prefix: "onedrivecuny", path: data.onedriveCunyPath });
+
+      if (Array.isArray(data.customRoots)) {
+        data.customRoots.forEach(function (r) {
+          if (r.enabled && r.prefix && r.path && !has(r.prefix))
+            existing.push({ prefix: r.prefix, path: r.path });
+        });
+      }
+    }
+  }
+
+  async saveSettings() {
+    await this.saveData(this.settings);
+    this.resolver = new Resolver(this.settings);
+  }
+}
+
+exports.default = ENSPlugin;

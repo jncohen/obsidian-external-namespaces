@@ -3,7 +3,7 @@
   "name": "External Namespaces",
   "version": "0.1.0",
   "minAppVersion": "1.5.0",
-  "description": "Prefix-based namespaces for external filesystem folders with autocomplete, paste normalization, and local-only resolution.",
+  "description": "Link to files and folders outside your vault. Register folder roots with short prefixes; paste any Windows path and it becomes a clickable link.",
   "author": "Joseph N. Cohen",
   "authorUrl": "https://github.com/jncohen",
   "isDesktopOnly": true

@@ -1,174 +1,102 @@
 # External Namespaces
 
-External Namespaces is an Obsidian plugin that allows notes to link to files
-outside the vault using explicit, prefix-based namespaces.
+An Obsidian plugin that lets you link to files and folders outside your vault.
+Register any folder with a short prefix; paste a Windows path and it becomes
+a clickable link that opens the file in its default application.
 
-The plugin is designed for users who manage large external folder structures
-(e.g. Dropbox, OneDrive, project directories) and want stable, readable links
-inside Obsidian without copying files into the vault.
+> **Desktop only · Requires Obsidian 1.5.0+**
 
-This plugin was created using Claude Code.
+---
+
+## How it works
+
+You register folders with short prefix names in the plugin settings:
+
+| Prefix | Folder path |
+|---|---|
+| `dropbox` | `D:\Dropbox` |
+| `work` | `C:\Users\Joe\Documents\Work` |
+
+When you paste a Windows path from one of those folders into a note, the plugin
+converts it automatically:
+
+```
+D:\Dropbox\papers\smith2020.pdf
+  →  [smith2020.pdf](obsidian://ens?p=dropbox:papers/smith2020.pdf)
+```
+
+In reading or preview mode, only the filename label is visible. Clicking it
+opens the file (or folder) in its default application via Obsidian's internal
+`obsidian://ens` handler — no Windows protocol registration required.
+
+Folder paths work too: pasting `D:\Dropbox\papers` produces a link that opens
+that folder in Explorer.
+
+---
 
 ## Installation
 
-### From the Obsidian Community Plugin Browser (recommended)
+### Manual
 
-1. Open Obsidian and go to **Settings → Community Plugins**
-2. Disable Safe Mode if prompted
-3. Click **Browse** and search for "External Namespaces"
-4. Click **Install**, then **Enable**
+1. Download `main.js`, `manifest.json`, and `styles.css` from the
+   [latest release](https://github.com/jncohen/obsidian-external-namespaces/releases/latest)
+2. In your vault create `.obsidian/plugins/external-namespaces/`
+3. Copy the three files into that folder
+4. Restart Obsidian, then go to **Settings → Community Plugins** and enable
+   **External Namespaces**
 
-### Manual Installation
+---
 
-1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](https://github.com/josephncohen/obsidian-external-namespaces/releases/latest)
-2. In your vault, create the folder `.obsidian/plugins/external-namespaces/`
-3. Copy the three downloaded files into that folder
-4. Restart Obsidian, then go to **Settings → Community Plugins** and enable **External Namespaces**
-
-### After Installing
+## Setup
 
 1. Go to **Settings → External Namespaces**
-2. Enter the local path to each folder you want to expose as a namespace (e.g. your Dropbox or OneDrive folder) and enable it
-3. Custom folders can be added under **Custom Roots** with any prefix name you choose
-
-> **Note:** This plugin is desktop-only. It requires Obsidian 1.5.0 or later.
-
----
-
-## Motivation
-
-Many Obsidian users work across multiple devices while syncing large external
-folders via cloud services such as Dropbox or OneDrive. Although the underlying
-files are the same, their absolute filesystem paths often differ across machines
-(e.g. different usernames, drive letters, or mount points).
-
-As a result, absolute paths, file:// URLs, and symlinks are not portable: links
-that work on one device break on another. This makes it difficult to reference
-external files reliably in long-lived notes.
-
-External Namespaces solves this by decoupling note links from machine-specific
-paths, allowing the same note to resolve correctly on every device.
+2. Click **+ Add root**
+3. Enter a short prefix (e.g. `dropbox`) and the full path to the folder
+   (e.g. `D:\Dropbox`)
+4. Repeat for any other folders you want to link from
 
 ---
 
-## Core Concept
+## Usage
 
-External files are referenced using a standard Markdown link with a namespace
-prefix as the URL scheme:
+### Paste a path
 
+Copy any file or folder path from Windows Explorer (right-click →
+**Copy as path**, or just copy from the address bar), then paste it into
+a note while in editing mode. If the path falls under a registered root,
+the plugin replaces it with a formatted link. If it doesn't match any root,
+the path is pasted unchanged.
+
+### Write links manually
+
+Links use standard Markdown syntax with an `obsidian://ens?p=` URL:
+
+```markdown
+[smith2020.pdf](obsidian://ens?p=dropbox:papers/smith2020.pdf)
+[Q1 report](obsidian://ens?p=work:reports/Q1.xlsx)
+[Papers folder](obsidian://ens?p=dropbox:papers)
 ```
-[filename.csv](dropbox:ProjectA/data/file.csv)
-```
 
-The display label can be anything you like. The `dropbox:` prefix identifies
-the namespace, and the path after it is resolved relative to that namespace root.
+In reading or preview mode these render as ordinary links showing only the
+label text.
 
-Namespaces map to folders on the local filesystem. All resolution is local and
-performed on disk; no cloud APIs are used.
+### Migrate from an older version
+
+If you used a previous version of this plugin with Dropbox, OneDrive, or
+custom root settings, those will be imported into the new format automatically
+on first load.
 
 ---
 
-## Supported Namespaces
-
-The plugin supports:
-
-- Dropbox folders
-- OneDrive folders (multiple accounts supported)
-- Arbitrary user-defined folders
-
-Each namespace is configured in the plugin settings.
-
----
-
-## Link Syntax
-
-### Standard links
-
-```
-[file.csv](dropbox:ProjectA/data/file.csv)
-[Q1 report](onedrive:Reports/Q1.xlsx)
-[notes](custom-root:subfolder/document.pdf)
-```
-
-Clicking a link opens the file in its default application.
-
-Image files are rendered inline when supported by Obsidian.
-
-### PDF behavior
-
-PDF files are **not embedded inline**. PDF embeds are silently suppressed to
-avoid broken rendering. PDFs can still be opened via standard links.
-
-This behavior is intentional.
-
----
-
-## Note-Scoped Sandboxing
-
-A note may restrict a namespace to a subfolder using frontmatter:
-
-```
-dropbox-folder: "ProjectA"
-```
-
-When set:
-
-- All `dropbox:` links in the note are restricted to that folder
-- Autocomplete suggestions are limited to that subtree
-- Embeds are subject to the same restriction
-
-Sandboxing is enforced silently.
-
----
-
-## Autocomplete
-
-To insert a namespaced link with autocomplete:
-
-1. Type `[[` followed by the namespace prefix and a colon — e.g. `[[dropbox:`
-2. Continue typing to filter the file list
-3. Select a file from the popup
-
-The plugin inserts a properly-formed Markdown link, for example:
-
-```
-[file.csv](dropbox:ProjectA/data/file.csv)
-```
-
-Suggestions respect namespace configuration and note-level sandboxing.
-
----
-
-## Paste Normalization (Windows)
-
-When a Windows "Copy as path" path is pasted into a note (including
-quoted paths from the **Copy as path** context menu), and the path falls
-under a configured namespace root, it is automatically converted to a
-namespaced link.
-
-For example, pasting `"C:\Users\you\Dropbox\Reports\Q1.xlsx"` produces:
-
-```
-[Q1.xlsx](dropbox:Reports/Q1.xlsx)
-```
-
-Non-matching paths are left untouched.
-
----
-
-## Privacy and Security
+## Privacy and security
 
 - All resolution is local filesystem only
-- No network requests
-- No telemetry
-- No cloud APIs
+- No network requests, no cloud APIs, no telemetry
 - No file contents are read or modified
 
 ---
 
 ## Status
 
-This plugin is currently in beta. Behavior is stable, but APIs and UI may change
-based on feedback.
-
----
+Active development. Core functionality (paste conversion and link opening)
+is stable. Built with [Claude](https://claude.ai).

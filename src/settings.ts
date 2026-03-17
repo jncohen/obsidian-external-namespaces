@@ -1,201 +1,109 @@
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { App, PluginSettingTab } from "obsidian";
+import ENSPlugin from "./main";
 
-/* -----------------------------
-   Types
------------------------------- */
+// ── Data types ────────────────────────────────────────────────────────────────
 
-export interface CustomRoot {
-  enabled: boolean;
-  prefix: string;
-  path: string;
+export interface RootDef {
+  prefix: string;  // short label used in links, e.g. "dropbox"
+  path:   string;  // absolute Windows path, e.g. "D:\\Dropbox"
 }
 
-export interface ExternalNamespacesSettings {
-  onedrivePersonalPath: string;
-  onedrivePersonalEnabled: boolean;
-
-  onedriveCunyPath: string;
-  onedriveCunyEnabled: boolean;
-
-  dropboxPath: string;
-  dropboxEnabled: boolean;
-
-  customRoots: CustomRoot[];
+export interface ENSSettings {
+  roots: RootDef[];
 }
 
-/* -----------------------------
-   Defaults
------------------------------- */
-
-export const DEFAULT_SETTINGS: ExternalNamespacesSettings = {
-  onedrivePersonalPath: "",
-  onedrivePersonalEnabled: false,
-
-  onedriveCunyPath: "",
-  onedriveCunyEnabled: false,
-
-  dropboxPath: "",
-  dropboxEnabled: false,
-
-  customRoots: []
+export const DEFAULT_SETTINGS: ENSSettings = {
+  roots: []
 };
 
-/* -----------------------------
-   Settings Tab
------------------------------- */
+// ── Settings tab ──────────────────────────────────────────────────────────────
 
-export class ExternalNamespacesSettingTab extends PluginSettingTab {
-  plugin: {
-    settings: ExternalNamespacesSettings;
-    saveSettings: () => Promise<void>;
-  };
+export class ENSSettingTab extends PluginSettingTab {
+  plugin: ENSPlugin;
 
-  constructor(app: App, plugin: { settings: ExternalNamespacesSettings; saveSettings: () => Promise<void> }) {
-    super(app, plugin as never);
+  constructor(app: App, plugin: ENSPlugin) {
+    super(app, plugin);
     this.plugin = plugin;
   }
 
   display(): void {
-    const { containerEl } = this;
-    containerEl.empty();
+    const plugin = this.plugin;
+    const el     = this.containerEl;
+    el.empty();
 
-    containerEl.createEl("h2", {
-      text: "External Namespaces — Filesystem Roots"
+    el.createEl("h2", { text: "External Namespaces" });
+
+    el.createEl("p", {
+      cls:  "ens-desc",
+      text: "Map short prefixes to folders on your computer. " +
+            "Paste any Windows file path from a registered folder into a note " +
+            "and it becomes a clickable link automatically."
     });
 
-    /* -----------------------------
-       Built-in Providers
-    ------------------------------ */
+    // ── Roots table ──────────────────────────────────────────────────────────
+    const table = el.createDiv({ cls: "ens-table" });
 
-    containerEl.createEl("h3", { text: "Built-in Providers" });
+    table.createEl("span", { cls: "ens-th", text: "Prefix" });
+    table.createEl("span", { cls: "ens-th", text: "Folder path" });
+    table.createEl("span", { cls: "ens-th" });
 
-    new Setting(containerEl)
-      .setName("OneDrive (Personal)")
-      .setDesc("Local path to your personal OneDrive folder")
-      .addText(text =>
-        text
-          .setPlaceholder("C:\\Users\\USERNAME\\OneDrive")
-          .setValue(this.plugin.settings.onedrivePersonalPath)
-          .onChange(async value => {
-            this.plugin.settings.onedrivePersonalPath = value;
-            await this.plugin.saveSettings();
-          })
-      )
-      .addToggle(toggle =>
-        toggle
-          .setValue(this.plugin.settings.onedrivePersonalEnabled)
-          .onChange(async value => {
-            this.plugin.settings.onedrivePersonalEnabled = value;
-            await this.plugin.saveSettings();
-          })
-      );
+    const roots = plugin.settings.roots;
 
-    new Setting(containerEl)
-      .setName("OneDrive (CUNY / Corporate)")
-      .setDesc("Local path to your corporate or institutional OneDrive folder")
-      .addText(text =>
-        text
-          .setPlaceholder("C:\\Users\\USERNAME\\OneDrive - CUNY")
-          .setValue(this.plugin.settings.onedriveCunyPath)
-          .onChange(async value => {
-            this.plugin.settings.onedriveCunyPath = value;
-            await this.plugin.saveSettings();
-          })
-      )
-      .addToggle(toggle =>
-        toggle
-          .setValue(this.plugin.settings.onedriveCunyEnabled)
-          .onChange(async value => {
-            this.plugin.settings.onedriveCunyEnabled = value;
-            await this.plugin.saveSettings();
-          })
-      );
+    if (roots.length === 0) {
+      table.createEl("span", {
+        cls:  "ens-empty",
+        text: "No roots configured. Add one below."
+      });
+    } else {
+      roots.forEach((root, i) => {
+        const prefixInput       = table.createEl("input", { cls: "ens-input" }) as HTMLInputElement;
+        prefixInput.type        = "text";
+        prefixInput.placeholder = "prefix";
+        prefixInput.value       = root.prefix;
+        prefixInput.addEventListener("change", async () => {
+          plugin.settings.roots[i].prefix = prefixInput.value.trim().toLowerCase();
+          await plugin.saveSettings();
+        });
 
-    new Setting(containerEl)
-      .setName("Dropbox")
-      .setDesc("Local path to your Dropbox folder")
-      .addText(text =>
-        text
-          .setPlaceholder("C:\\Users\\USERNAME\\Dropbox")
-          .setValue(this.plugin.settings.dropboxPath)
-          .onChange(async value => {
-            this.plugin.settings.dropboxPath = value;
-            await this.plugin.saveSettings();
-          })
-      )
-      .addToggle(toggle =>
-        toggle
-          .setValue(this.plugin.settings.dropboxEnabled)
-          .onChange(async value => {
-            this.plugin.settings.dropboxEnabled = value;
-            await this.plugin.saveSettings();
-          })
-      );
+        const pathInput       = table.createEl("input", { cls: "ens-input" }) as HTMLInputElement;
+        pathInput.type        = "text";
+        pathInput.placeholder = "C:\\path\\to\\folder";
+        pathInput.value       = root.path;
+        pathInput.addEventListener("change", async () => {
+          plugin.settings.roots[i].path = pathInput.value.trim();
+          await plugin.saveSettings();
+        });
 
-    /* -----------------------------
-       Custom Roots
-    ------------------------------ */
+        const del = table.createEl("button", { cls: "ens-delete-btn" });
+        del.textContent = "✕";
+        del.setAttribute("aria-label", "Remove root");
+        del.addEventListener("click", async () => {
+          plugin.settings.roots.splice(i, 1);
+          await plugin.saveSettings();
+          this.display();
+        });
+      });
+    }
 
-    containerEl.createEl("h3", { text: "Custom Roots" });
-
-    this.plugin.settings.customRoots.forEach((root, index) => {
-      new Setting(containerEl)
-        .setName(`Custom Root: ${root.prefix || "(unnamed)"}`)
-        .setDesc("User-defined filesystem root")
-        .addText(text =>
-          text
-            .setPlaceholder("prefix")
-            .setValue(root.prefix)
-            .onChange(async value => {
-              this.plugin.settings.customRoots[index].prefix = value;
-              await this.plugin.saveSettings();
-            })
-        )
-        .addText(text =>
-          text
-            .setPlaceholder("C:\\path\\to\\folder")
-            .setValue(root.path)
-            .onChange(async value => {
-              this.plugin.settings.customRoots[index].path = value;
-              await this.plugin.saveSettings();
-            })
-        )
-        .addToggle(toggle =>
-          toggle
-            .setValue(root.enabled)
-            .onChange(async value => {
-              this.plugin.settings.customRoots[index].enabled = value;
-              await this.plugin.saveSettings();
-            })
-        )
-        .addButton(button =>
-          button
-            .setButtonText("Delete")
-            .setWarning()
-            .onClick(async () => {
-              this.plugin.settings.customRoots.splice(index, 1);
-              await this.plugin.saveSettings();
-              this.display();
-            })
-        );
+    // ── Add root button ──────────────────────────────────────────────────────
+    const addRow = el.createDiv({ cls: "ens-add-row" });
+    const addBtn = addRow.createEl("button", { cls: "mod-cta" });
+    addBtn.textContent = "+ Add root";
+    addBtn.addEventListener("click", async () => {
+      plugin.settings.roots.push({ prefix: "", path: "" });
+      await plugin.saveSettings();
+      this.display();
     });
 
-    new Setting(containerEl)
-      .setName("Add Custom Root")
-      .setDesc("Add a new user-defined filesystem root")
-      .addButton(button =>
-        button
-          .setButtonText("Add Root")
-          .setCta()
-          .onClick(async () => {
-            this.plugin.settings.customRoots.push({
-              prefix: "",
-              path: "",
-              enabled: false
-            });
-            await this.plugin.saveSettings();
-            this.display();
-          })
-      );
+    // ── Usage hint ───────────────────────────────────────────────────────────
+    if (roots.length > 0) {
+      const exPrefix = roots[0].prefix || "prefix";
+      const hint     = el.createEl("p", { cls: "ens-hint" });
+      hint.innerHTML =
+        "Paste any Windows path from a registered folder into a note — " +
+        "it becomes a link like <code>[filename](obsidian://ens?p=" +
+        exPrefix + ":relative/path)</code>. " +
+        "In reading or preview mode only the filename is visible; clicking it opens the file.";
+    }
   }
 }
