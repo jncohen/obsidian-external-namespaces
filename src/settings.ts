@@ -40,6 +40,11 @@ export class ENSSettingTab extends PluginSettingTab {
             "and it becomes a clickable link automatically."
     });
 
+    el.createEl("p", {
+      cls:  "ens-sync-notice",
+      text: "Folder paths are stored on this device only and will not sync to other devices."
+    });
+
     // ── Roots table ──────────────────────────────────────────────────────────
     const table = el.createDiv({ cls: "ens-table" });
 
@@ -67,7 +72,7 @@ export class ENSSettingTab extends PluginSettingTab {
 
         const pathInput       = table.createEl("input", { cls: "ens-input" }) as HTMLInputElement;
         pathInput.type        = "text";
-        pathInput.placeholder = "C:\\path\\to\\folder";
+        pathInput.placeholder = "Path on this device";
         pathInput.value       = root.path;
         pathInput.addEventListener("change", async () => {
           plugin.settings.roots[i].path = pathInput.value.trim();

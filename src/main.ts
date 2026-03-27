@@ -3,6 +3,23 @@ import * as nodePath from "path";
 import * as nodeFs   from "fs";
 import { ENSSettings, DEFAULT_SETTINGS, ENSSettingTab, RootDef } from "./settings";
 
+// ── Device-local path storage (localStorage) ──────────────────────────────────
+
+function localStorageKey(vaultName: string): string {
+  return `ens-local-paths-${vaultName}`;
+}
+
+function loadLocalPaths(vaultName: string): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(localStorageKey(vaultName));
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
+function saveLocalPaths(vaultName: string, paths: Record<string, string>): void {
+  localStorage.setItem(localStorageKey(vaultName), JSON.stringify(paths));
+}
+
 // ── Resolver ──────────────────────────────────────────────────────────────────
 
 class Resolver {
@@ -106,33 +123,87 @@ export default class ENSPlugin extends Plugin {
   onunload() {}
 
   async loadSettings() {
-    const data = await this.loadData() as any;
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, data ?? {});
-    if (!Array.isArray(this.settings.roots)) this.settings.roots = [];
+    const data       = await this.loadData() as any;
+    const vaultName  = this.app.vault.getName();
+    const localPaths = loadLocalPaths(vaultName);
+
+    // ── Build synced prefix list ──────────────────────────────────────────────
+    let syncedRoots: Array<{ prefix: string; path: string }> = [];
+    if (data && Array.isArray(data.roots)) {
+      syncedRoots = (data.roots as any[]).filter(r => typeof r.prefix === "string" && r.prefix);
+    }
 
     // ── Migrate from old format ───────────────────────────────────────────────
+    // Handles: roots[].path still present in data.json, and legacy named fields.
+    let needsSave = false;
+    const has = (prefix: string) => syncedRoots.some(r => r.prefix === prefix);
+
+    // If any root in data.json has a path, migrate it to localStorage and strip it.
+    for (const r of syncedRoots) {
+      if (r.path && !localPaths[r.prefix]) {
+        localPaths[r.prefix] = r.path;
+        needsSave = true;
+      }
+    }
+
+    // Legacy named-field format (dropboxEnabled, onedrivePersonalEnabled, etc.)
     if (data) {
-      const existing = this.settings.roots;
-      const has = (prefix: string) => existing.some(r => r.prefix === prefix);
-
-      if (data.dropboxEnabled         && data.dropboxPath         && !has("dropbox"))
-        existing.push({ prefix: "dropbox",       path: data.dropboxPath });
-      if (data.onedrivePersonalEnabled && data.onedrivePersonalPath && !has("onedrive"))
-        existing.push({ prefix: "onedrive",      path: data.onedrivePersonalPath });
-      if (data.onedriveCunyEnabled     && data.onedriveCunyPath     && !has("onedrivecuny"))
-        existing.push({ prefix: "onedrivecuny",  path: data.onedriveCunyPath });
-
+      if (data.dropboxEnabled         && data.dropboxPath         && !has("dropbox")) {
+        syncedRoots.push({ prefix: "dropbox",      path: "" });
+        if (!localPaths["dropbox"]) localPaths["dropbox"] = data.dropboxPath;
+        needsSave = true;
+      }
+      if (data.onedrivePersonalEnabled && data.onedrivePersonalPath && !has("onedrive")) {
+        syncedRoots.push({ prefix: "onedrive",     path: "" });
+        if (!localPaths["onedrive"]) localPaths["onedrive"] = data.onedrivePersonalPath;
+        needsSave = true;
+      }
+      if (data.onedriveCunyEnabled     && data.onedriveCunyPath     && !has("onedrivecuny")) {
+        syncedRoots.push({ prefix: "onedrivecuny", path: "" });
+        if (!localPaths["onedrivecuny"]) localPaths["onedrivecuny"] = data.onedriveCunyPath;
+        needsSave = true;
+      }
       if (Array.isArray(data.customRoots)) {
         for (const r of data.customRoots) {
-          if (r.enabled && r.prefix && r.path && !has(r.prefix))
-            existing.push({ prefix: r.prefix, path: r.path });
+          if (r.enabled && r.prefix && r.path && !has(r.prefix)) {
+            syncedRoots.push({ prefix: r.prefix, path: "" });
+            if (!localPaths[r.prefix]) localPaths[r.prefix] = r.path;
+            needsSave = true;
+          }
         }
       }
     }
+
+    if (needsSave) saveLocalPaths(vaultName, localPaths);
+
+    // ── Merge: combine prefix list with local paths ───────────────────────────
+    this.settings = {
+      roots: syncedRoots.map(r => ({
+        prefix: r.prefix,
+        path:   localPaths[r.prefix] ?? "",
+      }))
+    };
+
+    if (needsSave) await this.saveSettings();
   }
 
   async saveSettings() {
-    await this.saveData(this.settings);
+    const vaultName = this.app.vault.getName();
+
+    // Paths → localStorage only (device-local, never synced)
+    const localPaths: Record<string, string> = {};
+    for (const r of this.settings.roots) {
+      if (r.prefix) localPaths[r.prefix] = r.path;
+    }
+    saveLocalPaths(vaultName, localPaths);
+
+    // Prefixes only → data.json (synced across devices)
+    await this.saveData({
+      roots: this.settings.roots
+        .filter(r => r.prefix)
+        .map(r => ({ prefix: r.prefix }))
+    });
+
     this.resolver = new Resolver(this.settings);
   }
 }
