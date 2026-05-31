@@ -3,7 +3,15 @@
     "allow": [
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:github.com)",
-      "WebFetch(domain:api.github.com)"
+      "WebFetch(domain:api.github.com)",
+      "Bash(npm run:*)",
+      "Bash(cmd.exe /c '\"\"C:\\\\Program Files\\\\RStudio\\\\resources\\\\app\\\\bin\\\\quarto\\\\bin\\\\quarto.cmd\"\" render anes24-mediationanalysis.Rmd --to pdf')",
+      "Bash(cmd.exe /c \"cd /d D:\\\\Dropbox\\\\Research\\\\anes24-antijewish-sentiment && \"\"C:\\\\Program Files\\\\RStudio\\\\resources\\\\app\\\\bin\\\\quarto\\\\bin\\\\quarto.cmd\"\" render anes24-mediationanalysis.Rmd --to pdf 2>&1\")",
+      "Bash(cmd.exe /c \"cd /d D:\\\\Dropbox\\\\Research\\\\anes24-antijewish-sentiment && Rscript -e \"\"quarto::quarto_render\\(''anes24-mediationanalysis.Rmd'', output_format=''pdf''\\)\"\" 2>&1\")",
+      "Bash(Rscript.exe -e \"setwd\\(''''D:/Dropbox/Research/anes24-antijewish-sentiment''''\\); rmarkdown::render\\(''''anes24-mediationanalysis.Rmd'''', output_format=''''pdf_document''''\\)\")",
+      "Bash(cmd.exe /c '\"\"C:\\\\Program Files\\\\RStudio\\\\resources\\\\app\\\\bin\\\\quarto\\\\bin\\\\quarto.cmd\"\" render anes24-mediationanalysis.Rmd --to pdf --no-cache')",
+      "Bash(ls \"D:/Dropbox/Research/anes24-antijewish-sentiment/\"*demo* \"D:/Dropbox/Research/anes24-antijewish-sentiment/\"*method* \"D:/Dropbox/Research/anes24-antijewish-sentiment/\"*humanit*)",
+      "Bash(ls \"C:/Users/jcohen/Desktop/\"*.Rmd \"C:/Users/jcohen/Desktop/\"*.qmd \"C:/Users/jcohen/Desktop/\"*.tex)"
     ]
   }
 }
