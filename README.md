@@ -113,4 +113,4 @@ on first load.
 ## Status
 
 Active development. Core functionality (paste conversion and link opening)
-is stable. Built with [Claude](https://claude.ai).
+is stable. Built with the help of [Chat-GPT](https://chat.openai.com/) and [Claude](https://claude.ai).
