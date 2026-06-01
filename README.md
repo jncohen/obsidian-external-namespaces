@@ -1,8 +1,13 @@
 # External Namespaces
 
-An Obsidian plugin that lets you link to files and folders outside your vault.
-Register any folder with a short prefix; paste a Windows path and it becomes
-a clickable link that opens the file in its default application.
+An Obsidian plugin for linking to files and folders outside your vault, even
+when those folders live in different local paths on different devices.
+
+This is useful when you keep shared work in services like Dropbox, OneDrive,
+Google Drive, or a network drive. The same synced folder might be
+`D:\Dropbox` on one computer and `C:\Users\Joe\Dropbox` on another. External
+Namespaces lets you write links with a stable prefix, such as `dropbox:`, while
+each device stores its own local folder path for that prefix.
 
 > **Desktop only · Requires Obsidian 1.5.0+**
 
@@ -10,7 +15,9 @@ a clickable link that opens the file in its default application.
 
 ## How it works
 
-You register folders with short prefix names in the plugin settings:
+You register folders with short prefix names in the plugin settings. The
+prefix is saved with your vault, while the folder path is stored only on the
+current device:
 
 | Prefix | Folder path |
 |---|---|
@@ -31,6 +38,9 @@ opens the file (or folder) in its default application via Obsidian's internal
 
 Folder paths work too: pasting `D:\Dropbox\papers` produces a link that opens
 that folder in Explorer.
+
+On another device, you can use the same `dropbox:` links after setting that
+device's local Dropbox folder path in the plugin settings.
 
 ---
 
@@ -53,7 +63,9 @@ that folder in Explorer.
 2. Click **+ Add root**
 3. Enter a short prefix (e.g. `dropbox`) and the full path to the folder
    (e.g. `D:\Dropbox`)
-4. Repeat for any other folders you want to link from
+4. On each other device, use the same prefix but enter that device's local path
+   to the same synced folder
+5. Repeat for any other folders you want to link from
 
 ---
 
