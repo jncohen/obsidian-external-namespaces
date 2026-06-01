@@ -91,6 +91,8 @@ on first load.
 ## Privacy and security
 
 - All resolution is local filesystem only
+- This plugin can open files and folders outside your vault when you click
+  links that use a configured external namespace
 - No network requests, no cloud APIs, no telemetry
 - No file contents are read or modified
 

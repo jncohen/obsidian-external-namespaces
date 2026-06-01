@@ -1,7 +1,7 @@
 {
   "id": "external-namespaces",
   "name": "External Namespaces",
-  "version": "0.1.0",
+  "version": "0.9.0",
   "minAppVersion": "1.5.0",
   "description": "Link to files and folders outside your vault. Register folder roots with short prefixes; paste any Windows path and it becomes a clickable link.",
   "author": "Joseph N. Cohen",
