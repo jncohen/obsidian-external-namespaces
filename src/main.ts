@@ -1,23 +1,65 @@
-import { ObsidianProtocolData, Plugin } from "obsidian";
+import { App, ObsidianProtocolData, Plugin } from "obsidian";
+import { shell } from "electron";
 import * as nodePath from "path";
 import * as nodeFs   from "fs";
-import { ENSSettings, DEFAULT_SETTINGS, ENSSettingTab, RootDef } from "./settings";
+import { ENSSettings, ENSSettingTab, RootDef } from "./settings";
 
-// ── Device-local path storage (localStorage) ──────────────────────────────────
+// ── Narrowing helpers for untyped persisted data ──────────────────────────────
 
-function localStorageKey(vaultName: string): string {
-  return `ens-local-paths-${vaultName}`;
+type LocalPaths = Record<string, string>;
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
 }
 
-function loadLocalPaths(vaultName: string): Record<string, string> {
+function asNonEmptyString(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+/** Keep only the string-valued entries of an arbitrary object. */
+function toLocalPaths(value: unknown): LocalPaths {
+  const record = asRecord(value);
+  if (!record) return {};
+  const paths: LocalPaths = {};
+  for (const [prefix, path] of Object.entries(record)) {
+    if (typeof path === "string") paths[prefix] = path;
+  }
+  return paths;
+}
+
+// ── Device-local path storage ─────────────────────────────────────────────────
+// Folder paths are per device and must never sync, so they live in Obsidian's
+// vault-scoped local storage rather than in data.json.
+
+const LOCAL_PATHS_KEY = "ens-local-paths";
+
+function loadLocalPaths(app: App): LocalPaths {
+  return toLocalPaths(app.loadLocalStorage(LOCAL_PATHS_KEY));
+}
+
+function saveLocalPaths(app: App, paths: LocalPaths): void {
+  app.saveLocalStorage(LOCAL_PATHS_KEY, paths);
+}
+
+/**
+ * Before 1.0 the paths were written straight to `localStorage` under a key
+ * suffixed with the vault name. Obsidian's own helpers are already vault
+ * scoped, so the legacy key is read once, migrated, and removed. Without this
+ * an upgrading user would silently lose every configured folder path.
+ */
+function migrateLegacyLocalPaths(app: App): LocalPaths | null {
+  const legacyKey = `ens-local-paths-${app.vault.getName()}`;
   try {
-    const raw = localStorage.getItem(localStorageKey(vaultName));
-    return raw ? JSON.parse(raw) : {};
-  } catch { return {}; }
-}
-
-function saveLocalPaths(vaultName: string, paths: Record<string, string>): void {
-  localStorage.setItem(localStorageKey(vaultName), JSON.stringify(paths));
+    const raw = window.localStorage.getItem(legacyKey);
+    if (!raw) return null;
+    const paths = toLocalPaths(JSON.parse(raw));
+    window.localStorage.removeItem(legacyKey);
+    return paths;
+  } catch {
+    return null;
+  }
 }
 
 // ── Resolver ──────────────────────────────────────────────────────────────────
@@ -91,7 +133,7 @@ class Resolver {
     const resolved = this.resolve(namespacedPath);
     if (!resolved) return;
     if (!nodeFs.existsSync(resolved)) return;
-    (window as any).require("electron").shell.openPath(resolved);
+    void shell.openPath(resolved);
   }
 }
 
@@ -160,6 +202,7 @@ export default class ENSPlugin extends Plugin {
     // Convert pasted Windows paths into namespace links.
     this.registerEvent(
       this.app.workspace.on("editor-paste", (evt: ClipboardEvent, editor) => {
+        if (evt.defaultPrevented) return;
         const text = (evt.clipboardData?.getData("text") ?? "").trim();
         if (!text) return;
         if (handlePaste(editor, text, this.settings)) evt.preventDefault();
@@ -173,22 +216,35 @@ export default class ENSPlugin extends Plugin {
   onunload() {}
 
   async loadSettings() {
-    const data       = await this.loadData() as any;
-    const vaultName  = this.app.vault.getName();
-    const localPaths = loadLocalPaths(vaultName);
+    const data = asRecord(await this.loadData());
 
-    // ── Build synced prefix list ──────────────────────────────────────────────
-    let syncedRoots: Array<{ prefix: string; path: string }> = [];
-    if (data && Array.isArray(data.roots)) {
-      syncedRoots = (data.roots as any[]).filter(r => typeof r.prefix === "string" && r.prefix);
+    let needsSave = false;
+
+    // Paths written by pre-1.0 versions live under a different key.
+    let localPaths = loadLocalPaths(this.app);
+    if (Object.keys(localPaths).length === 0) {
+      const legacy = migrateLegacyLocalPaths(this.app);
+      if (legacy) {
+        localPaths = legacy;
+        needsSave  = true;
+      }
     }
 
-    // ── Migrate from old format ───────────────────────────────────────────────
-    // Handles: roots[].path still present in data.json, and legacy named fields.
-    let needsSave = false;
+    // ── Build synced prefix list ──────────────────────────────────────────────
+    const syncedRoots: RootDef[] = [];
+    if (Array.isArray(data?.roots)) {
+      for (const entry of data.roots) {
+        const record = asRecord(entry);
+        const prefix = record && asNonEmptyString(record.prefix);
+        if (!record || !prefix) continue;
+        syncedRoots.push({ prefix, path: asNonEmptyString(record.path) ?? "" });
+      }
+    }
+
     const has = (prefix: string) => syncedRoots.some(r => r.prefix === prefix);
 
-    // If any root in data.json has a path, migrate it to localStorage and strip it.
+    // ── Migrate from old formats ──────────────────────────────────────────────
+    // A root in data.json that still carries a path moves to local storage.
     for (const r of syncedRoots) {
       if (r.path && !localPaths[r.prefix]) {
         localPaths[r.prefix] = r.path;
@@ -196,35 +252,36 @@ export default class ENSPlugin extends Plugin {
       }
     }
 
-    // Legacy named-field format (dropboxEnabled, onedrivePersonalEnabled, etc.)
     if (data) {
-      if (data.dropboxEnabled         && data.dropboxPath         && !has("dropbox")) {
-        syncedRoots.push({ prefix: "dropbox",      path: "" });
-        if (!localPaths["dropbox"]) localPaths["dropbox"] = data.dropboxPath;
+      // Legacy named-field format (dropboxEnabled, onedrivePersonalEnabled, …).
+      const namedRoots: Array<[string, unknown, unknown]> = [
+        ["dropbox",      data.dropboxEnabled,          data.dropboxPath],
+        ["onedrive",     data.onedrivePersonalEnabled, data.onedrivePersonalPath],
+        ["onedrivecuny", data.onedriveCunyEnabled,     data.onedriveCunyPath],
+      ];
+      for (const [prefix, enabled, rawPath] of namedRoots) {
+        const path = asNonEmptyString(rawPath);
+        if (!enabled || !path || has(prefix)) continue;
+        syncedRoots.push({ prefix, path: "" });
+        if (!localPaths[prefix]) localPaths[prefix] = path;
         needsSave = true;
       }
-      if (data.onedrivePersonalEnabled && data.onedrivePersonalPath && !has("onedrive")) {
-        syncedRoots.push({ prefix: "onedrive",     path: "" });
-        if (!localPaths["onedrive"]) localPaths["onedrive"] = data.onedrivePersonalPath;
-        needsSave = true;
-      }
-      if (data.onedriveCunyEnabled     && data.onedriveCunyPath     && !has("onedrivecuny")) {
-        syncedRoots.push({ prefix: "onedrivecuny", path: "" });
-        if (!localPaths["onedrivecuny"]) localPaths["onedrivecuny"] = data.onedriveCunyPath;
-        needsSave = true;
-      }
+
       if (Array.isArray(data.customRoots)) {
-        for (const r of data.customRoots) {
-          if (r.enabled && r.prefix && r.path && !has(r.prefix)) {
-            syncedRoots.push({ prefix: r.prefix, path: "" });
-            if (!localPaths[r.prefix]) localPaths[r.prefix] = r.path;
-            needsSave = true;
-          }
+        for (const entry of data.customRoots) {
+          const record = asRecord(entry);
+          if (!record?.enabled) continue;
+          const prefix = asNonEmptyString(record.prefix);
+          const path   = asNonEmptyString(record.path);
+          if (!prefix || !path || has(prefix)) continue;
+          syncedRoots.push({ prefix, path: "" });
+          if (!localPaths[prefix]) localPaths[prefix] = path;
+          needsSave = true;
         }
       }
     }
 
-    if (needsSave) saveLocalPaths(vaultName, localPaths);
+    if (needsSave) saveLocalPaths(this.app, localPaths);
 
     // ── Merge: combine prefix list with local paths ───────────────────────────
     this.settings = {
@@ -238,14 +295,12 @@ export default class ENSPlugin extends Plugin {
   }
 
   async saveSettings() {
-    const vaultName = this.app.vault.getName();
-
-    // Paths → localStorage only (device-local, never synced)
-    const localPaths: Record<string, string> = {};
+    // Paths → local storage only (device-local, never synced)
+    const localPaths: LocalPaths = {};
     for (const r of this.settings.roots) {
       if (r.prefix) localPaths[r.prefix] = r.path;
     }
-    saveLocalPaths(vaultName, localPaths);
+    saveLocalPaths(this.app, localPaths);
 
     // Prefixes only → data.json (synced across devices)
     await this.saveData({

@@ -12,10 +12,6 @@ export interface ENSSettings {
   roots: RootDef[];
 }
 
-export const DEFAULT_SETTINGS: ENSSettings = {
-  roots: []
-};
-
 // ── Settings tab ──────────────────────────────────────────────────────────────
 
 export class ENSSettingTab extends PluginSettingTab {
@@ -46,43 +42,42 @@ export class ENSSettingTab extends PluginSettingTab {
     // ── Roots table ──────────────────────────────────────────────────────────
     const table = el.createDiv({ cls: "ens-table" });
 
-    table.createEl("span", { cls: "ens-th", text: "Prefix" });
-    table.createEl("span", { cls: "ens-th", text: "Folder path" });
-    table.createEl("span", { cls: "ens-th" });
+    table.createSpan({ cls: "ens-th", text: "Prefix" });
+    table.createSpan({ cls: "ens-th", text: "Folder path" });
+    table.createSpan({ cls: "ens-th" });
 
     const roots = plugin.settings.roots;
 
     if (roots.length === 0) {
-      table.createEl("span", {
+      table.createSpan({
         cls:  "ens-empty",
         text: "No roots configured. Add one below."
       });
     } else {
       roots.forEach((root, i) => {
-        const prefixInput       = table.createEl("input", { cls: "ens-input" }) as HTMLInputElement;
+        const prefixInput       = table.createEl("input", { cls: "ens-input" });
         prefixInput.type        = "text";
-        prefixInput.placeholder = "prefix";
+        prefixInput.placeholder = "Prefix";
         prefixInput.value       = root.prefix;
-        prefixInput.addEventListener("change", async () => {
+        prefixInput.addEventListener("change", () => {
           plugin.settings.roots[i].prefix = prefixInput.value.trim().toLowerCase();
-          await plugin.saveSettings();
+          void plugin.saveSettings();
         });
 
-        const pathInput       = table.createEl("input", { cls: "ens-input" }) as HTMLInputElement;
+        const pathInput       = table.createEl("input", { cls: "ens-input" });
         pathInput.type        = "text";
         pathInput.placeholder = "Path on this device";
         pathInput.value       = root.path;
-        pathInput.addEventListener("change", async () => {
+        pathInput.addEventListener("change", () => {
           plugin.settings.roots[i].path = pathInput.value.trim();
-          await plugin.saveSettings();
+          void plugin.saveSettings();
         });
 
-        const del = table.createEl("button", { cls: "ens-delete-btn" });
-        del.textContent = "✕";
+        const del = table.createEl("button", { cls: "ens-delete-btn", text: "✕" });
         del.setAttribute("aria-label", "Remove root");
-        del.addEventListener("click", async () => {
+        del.addEventListener("click", () => {
           plugin.settings.roots.splice(i, 1);
-          await plugin.saveSettings();
+          void plugin.saveSettings();
           this.display();
         });
       });
@@ -90,11 +85,10 @@ export class ENSSettingTab extends PluginSettingTab {
 
     // ── Add root button ──────────────────────────────────────────────────────
     const addRow = el.createDiv({ cls: "ens-add-row" });
-    const addBtn = addRow.createEl("button", { cls: "mod-cta" });
-    addBtn.textContent = "+ Add root";
-    addBtn.addEventListener("click", async () => {
+    const addBtn = addRow.createEl("button", { cls: "mod-cta", text: "Add root" });
+    addBtn.addEventListener("click", () => {
       plugin.settings.roots.push({ prefix: "", path: "" });
-      await plugin.saveSettings();
+      void plugin.saveSettings();
       this.display();
     });
 
