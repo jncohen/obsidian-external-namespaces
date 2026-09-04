@@ -140,4 +140,4 @@ That access is deliberately narrow:
 ## Status
 
 Active development. Core functionality (paste conversion and link opening)
-is stable. Built with the help of [Chat-GPT](https://chat.openai.com/) and [Claude](https://claude.ai).
+is stable.
