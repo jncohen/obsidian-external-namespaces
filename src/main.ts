@@ -1,4 +1,4 @@
-import { App, ObsidianProtocolData, Plugin } from "obsidian";
+import { App, Notice, ObsidianProtocolData, Plugin } from "obsidian";
 import { shell } from "electron";
 import * as nodePath from "path";
 import * as nodeFs   from "fs";
@@ -64,6 +64,31 @@ function migrateLegacyLocalPaths(app: App): LocalPaths | null {
 
 // ── Resolver ──────────────────────────────────────────────────────────────────
 
+/**
+ * Why a link could not be opened. Carried so the click handler can tell the
+ * user what went wrong instead of doing nothing.
+ */
+type Resolution =
+  | { ok: true;  path: string }
+  | { ok: false; reason: "malformed" }
+  | { ok: false; reason: "unknown-prefix" | "no-path" | "outside-root"; prefix: string }
+  | { ok: false; reason: "missing"; path: string };
+
+function describeFailure(result: Extract<Resolution, { ok: false }>): string {
+  switch (result.reason) {
+    case "malformed":
+      return "Malformed link. Expected the form prefix:path.";
+    case "unknown-prefix":
+      return `No namespace registered for "${result.prefix}". Add it in the External Namespaces settings.`;
+    case "no-path":
+      return `No folder path set for "${result.prefix}" on this device. Add it in the External Namespaces settings.`;
+    case "outside-root":
+      return `Link resolves outside the "${result.prefix}" folder, so it was not opened.`;
+    case "missing":
+      return `File not found: ${result.path}`;
+  }
+}
+
 class Resolver {
   constructor(private settings: ENSSettings) {}
 
@@ -110,30 +135,51 @@ class Resolver {
    * Returns null if the path would resolve outside the registered root, so a
    * crafted link cannot use ".." to reach arbitrary files on the device.
    */
-  resolve(namespacedPath: string): string | null {
+  resolve(namespacedPath: string): Resolution {
     const idx = namespacedPath.indexOf(":");
-    if (idx === -1) return null;
+    if (idx === -1) return { ok: false, reason: "malformed" };
     const prefix = namespacedPath.slice(0, idx);
     const rel    = namespacedPath.slice(idx + 1);
-    const root   = this.findRoot(prefix);
-    if (!root) return null;
+
+    const root = this.findRoot(prefix);
+    if (!root) {
+      // A prefix that exists but has no path is the common cross-device case:
+      // the link synced across, the folder location has not been set here yet.
+      const known = this.settings.roots.some(r => r.prefix === prefix && r.prefix);
+      return known
+        ? { ok: false, reason: "no-path",        prefix }
+        : { ok: false, reason: "unknown-prefix", prefix };
+    }
 
     let firstContained: string | null = null;
+    let escaped        = false;
     for (const candidate of this.candidates(rel)) {
       const abs = this.contain(root.path, candidate);
-      if (!abs) continue;                       // escapes the root — discard
-      if (nodeFs.existsSync(abs)) return abs;   // prefer one that actually exists
+      if (!abs) { escaped = true; continue; }                // escapes the root — discard
+      if (nodeFs.existsSync(abs)) return { ok: true, path: abs };
       if (firstContained === null) firstContained = abs;
     }
-    return firstContained;
+
+    // If any reading of the path climbed out of the root and nothing openable
+    // was found, the escape is the useful thing to report. Otherwise the raw
+    // form of an encoded "../" gets described as a missing file, which hides
+    // what actually happened.
+    if (escaped || firstContained === null) return { ok: false, reason: "outside-root", prefix };
+    return { ok: false, reason: "missing", path: firstContained };
   }
 
   /** Open the resolved path with its default OS application. */
   open(namespacedPath: string): void {
-    const resolved = this.resolve(namespacedPath);
-    if (!resolved) return;
-    if (!nodeFs.existsSync(resolved)) return;
-    void shell.openPath(resolved);
+    const result = this.resolve(namespacedPath);
+    if (!result.ok) {
+      new Notice(describeFailure(result));
+      return;
+    }
+    void shell.openPath(result.path).then(error => {
+      // openPath resolves with a non-empty string when the OS refused it,
+      // for example when no application is associated with the file type.
+      if (error) new Notice(`Could not open ${result.path}: ${error}`);
+    });
   }
 }
 
