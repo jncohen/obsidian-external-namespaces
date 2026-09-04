@@ -29,7 +29,45 @@ class Resolver {
     return this.settings.roots.find(r => r.prefix === prefix && r.prefix && r.path);
   }
 
-  /** Convert "prefix:relative/path" → absolute filesystem path. */
+  /**
+   * Relative paths to try, percent-decoded form first.
+   * Obsidian may or may not have decoded the query parameter already, and a
+   * filename can legitimately contain a "%", so both forms are considered.
+   */
+  private candidates(rel: string): string[] {
+    const list = [rel];
+    try {
+      const decoded = decodeURIComponent(rel);
+      if (decoded !== rel) list.unshift(decoded);
+    } catch {
+      // Malformed escape sequence — the raw form is the only sensible reading.
+    }
+    return list;
+  }
+
+  /**
+   * Absolute path for `rel` beneath `rootPath`, or null if it escapes.
+   * Every candidate passes through here *after* decoding, so an encoded
+   * traversal such as %2e%2e%2f cannot slip past the containment check.
+   */
+  private contain(rootPath: string, rel: string): string | null {
+    if (nodePath.isAbsolute(rel) || /^[A-Za-z]:/.test(rel)) return null;
+
+    const rootAbs  = nodePath.resolve(rootPath);
+    const resolved = nodePath.resolve(rootAbs, rel);
+
+    // The result must be the root itself or a descendant of it.
+    const offset = nodePath.relative(rootAbs, resolved);
+    if (offset !== "" && (offset.startsWith("..") || nodePath.isAbsolute(offset))) return null;
+
+    return resolved;
+  }
+
+  /**
+   * Convert "prefix:relative/path" → absolute filesystem path.
+   * Returns null if the path would resolve outside the registered root, so a
+   * crafted link cannot use ".." to reach arbitrary files on the device.
+   */
   resolve(namespacedPath: string): string | null {
     const idx = namespacedPath.indexOf(":");
     if (idx === -1) return null;
@@ -37,7 +75,15 @@ class Resolver {
     const rel    = namespacedPath.slice(idx + 1);
     const root   = this.findRoot(prefix);
     if (!root) return null;
-    return nodePath.normalize(nodePath.join(root.path, rel));
+
+    let firstContained: string | null = null;
+    for (const candidate of this.candidates(rel)) {
+      const abs = this.contain(root.path, candidate);
+      if (!abs) continue;                       // escapes the root — discard
+      if (nodeFs.existsSync(abs)) return abs;   // prefer one that actually exists
+      if (firstContained === null) firstContained = abs;
+    }
+    return firstContained;
   }
 
   /** Open the resolved path with its default OS application. */
@@ -84,7 +130,11 @@ function handlePaste(
 
   const rel      = norm.slice(bestRoot.normPath.length).replace(/^\/+/, "");
   const filename = rel.split("/").at(-1) ?? rel;
-  const link     = `[${filename}](obsidian://ens?p=${bestRoot.def.prefix}:${rel})`;
+
+  // Percent-encode each segment so spaces, "&", "#" and friends survive both
+  // Markdown link parsing and the query string. Separators stay literal.
+  const encoded = rel.split("/").map(encodeURIComponent).join("/");
+  const link    = `[${filename}](obsidian://ens?p=${bestRoot.def.prefix}:${encoded})`;
 
   editor.replaceSelection(link);
   return true;

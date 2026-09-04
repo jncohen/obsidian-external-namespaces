@@ -92,6 +92,16 @@ Links use standard Markdown syntax with an `obsidian://ens?p=` URL:
 In reading or preview mode these render as ordinary links showing only the
 label text.
 
+If a name contains a space, `&`, `#` or `%`, percent-encode it — a raw space
+would end the Markdown link early, and a raw `&` would cut the URL short:
+
+```markdown
+[Lecture Framework.pdf](obsidian://ens?p=gdrive:Teaching/Lecture%20Framework.pdf)
+[Q1&Q2 notes.md](obsidian://ens?p=gdrive:Teaching/Q1%26Q2%20notes.md)
+```
+
+Pasted links are encoded for you. Leave `/` between folders as-is.
+
 ### Migrate from an older version
 
 If you used a previous version of this plugin with Dropbox, OneDrive, or
@@ -102,11 +112,28 @@ on first load.
 
 ## Privacy and security
 
-- All resolution is local filesystem only
-- This plugin can open files and folders outside your vault when you click
-  links that use a configured external namespace
-- No network requests, no cloud APIs, no telemetry
-- No file contents are read or modified
+**This plugin accesses files and folders outside your Obsidian vault.** That is
+its purpose: it exists to link notes to documents you keep in synced folders
+such as Dropbox, OneDrive, or Google Drive, which by definition live outside the
+vault. Without out-of-vault access the plugin could not do anything useful.
+
+That access is deliberately narrow:
+
+- It only opens paths beneath a folder root that you have registered yourself in
+  the plugin settings. Nothing else on your computer is reachable.
+- A link that resolves outside a registered root — for example one using `..` to
+  climb above it — is refused rather than opened.
+- Opening is delegated to the operating system's default application for the
+  file. The plugin never reads, writes, or modifies file contents.
+- All resolution is local filesystem only. No network requests, no cloud APIs,
+  no telemetry.
+- Folder paths are stored on each device separately and are never synced.
+
+---
+
+## License
+
+[MIT](LICENSE) © Joseph N. Cohen
 
 ---
 

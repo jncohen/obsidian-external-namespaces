@@ -31,8 +31,6 @@ export class ENSSettingTab extends PluginSettingTab {
     const el     = this.containerEl;
     el.empty();
 
-    el.createEl("h2", { text: "External Namespaces" });
-
     el.createEl("p", {
       cls:  "ens-desc",
       text: "Map short prefixes to folders on your computer. " +
@@ -104,11 +102,17 @@ export class ENSSettingTab extends PluginSettingTab {
     if (roots.length > 0) {
       const exPrefix = roots[0].prefix || "prefix";
       const hint     = el.createEl("p", { cls: "ens-hint" });
-      hint.innerHTML =
+      hint.appendText(
         "Paste any Windows path from a registered folder into a note — " +
-        "it becomes a link like <code>[filename](obsidian://ens?p=" +
-        exPrefix + ":relative/path)</code>. " +
-        "In reading or preview mode only the filename is visible; clicking it opens the file.";
+        "it becomes a link like "
+      );
+      hint.createEl("code", {
+        text: `[filename](obsidian://ens?p=${exPrefix}:relative/path)`
+      });
+      hint.appendText(
+        ". In reading or preview mode only the filename is visible; " +
+        "clicking it opens the file."
+      );
     }
   }
 }
